@@ -2,6 +2,7 @@ module Main exposing (..)
 
 import Browser
 import Browser.Dom as Dom
+import Dict
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
@@ -17,6 +18,9 @@ import Task exposing (..)
 
 type alias Model =
     { grid : Grid
+    , gridWidth : Int
+    , gridHeight : Int
+    , initialCells : InitialCells
     , viewportWidth : Float
     , viewportHeight : Float
     , error : Maybe String
@@ -27,34 +31,98 @@ type alias Grid =
     List (List (Maybe String))
 
 
-unassigned : Maybe String
+type alias InitialCells =
+    List ( Int, Int, Maybe String )
+
+
+type alias CellColor =
+    Maybe String
+
+
+unassigned : CellColor
 unassigned =
     Nothing
 
 
-black : Maybe String
+black : CellColor
 black =
     Just "black"
 
 
-white : Maybe String
+white : CellColor
 white =
     Just "white"
 
 
-initialGrid : Grid
-initialGrid =
-    [ [ black, black, unassigned ]
-    , [ black, unassigned, white ]
-    , [ unassigned, white, unassigned ]
+gridWidth : Int
+gridWidth =
+    10
+
+
+gridHeight : Int
+gridHeight =
+    10
+
+
+initialCells : InitialCells
+initialCells =
+    [ ( 1, 2, white )
+    , ( 1, 5, white )
+    , ( 2, 3, white )
+    , ( 2, 6, white )
+    , ( 2, 8, black )
+    , ( 4, 2, white )
+    , ( 4, 5, white )
+    , ( 4, 7, white )
+    , ( 5, 1, black )
+    , ( 6, 4, white )
+    , ( 6, 6, white )
+    , ( 7, 1, black )
+    , ( 7, 8, white )
+    , ( 8, 0, black )
+    , ( 8, 4, white )
+    , ( 8, 6, black )
+    , ( 9, 0, white )
+    , ( 9, 1, white )
     ]
+
+
+initializeGrid : Int -> Int -> InitialCells -> Grid
+initializeGrid width height cells =
+    -- assumes cells are legal positions and are sorted by row and column
+    let
+        sparse : Dict.Dict ( Int, Int ) CellColor
+        sparse =
+            Dict.fromList <| List.map (\( r, c, mClr ) -> ( ( r, c ), mClr )) cells
+
+        dense : Grid
+        dense =
+            List.repeat height (List.repeat width unassigned)
+
+        updateRowFromSparse : Int -> List CellColor -> List CellColor
+        updateRowFromSparse r rowCells =
+            List.indexedMap (updateColumnFromSparse r) rowCells
+
+        updateColumnFromSparse : Int -> Int -> CellColor -> CellColor
+        updateColumnFromSparse r c mClr =
+            case Dict.get ( r, c ) sparse of
+                Nothing ->
+                    mClr
+
+                Just newMClr ->
+                    newMClr
+    in
+    List.indexedMap updateRowFromSparse dense
 
 
 initialModel : Model
 initialModel =
-    { grid = initialGrid
-    , viewportWidth = 100.0
-    , viewportHeight = 100.0
+    { grid = initializeGrid gridWidth gridHeight initialCells
+    , gridWidth = gridWidth
+    , gridHeight = gridHeight
+    , initialCells = initialCells
+    , viewportWidth = 1.0 -- placeholder
+    , viewportHeight = 1.0 -- placeholder
     , error = Nothing
     }
 
@@ -116,17 +184,17 @@ svgGrid model =
         cellSize =
             cellSizeFromViewport model.viewportWidth model.viewportHeight
     in
-    column [ centerX, centerY ] <|
-        List.map (rowView cellSize) model.grid
+    column [ centerX, centerY, Border.color (rgb 0 0 0), Border.width 1 ] <|
+        List.map (rowView gridWidth cellSize) model.grid
 
 
-rowView : Int -> List (Maybe String) -> Element msg
-rowView cellSize r =
-    row [ centerX, centerY, width (px (3 * cellSize)), height (px cellSize), explain Debug.todo ] <|
+rowView : Int -> Int -> List CellColor -> Element msg
+rowView w cellSize r =
+    row [ centerX, centerY, width (px (w * cellSize)), height (px cellSize) ] <|
         List.map (dot cellSize) r
 
 
-dot : Int -> Maybe String -> Element msg
+dot : Int -> CellColor -> Element msg
 dot cellSize clr =
     let
         cx =
@@ -176,7 +244,7 @@ dot cellSize clr =
 
 cellSizeFromViewport : Float -> Float -> Int
 cellSizeFromViewport width height =
-    min (width / 3) (height / 3) |> (\x -> x * 0.9) |> round
+    min (width / toFloat gridWidth) (height / toFloat gridHeight) |> (\x -> x * 0.9) |> round
 
 
 
