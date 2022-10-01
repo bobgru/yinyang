@@ -25,14 +25,20 @@ type alias Model =
 type alias SparseModel =
     { width : Int
     , height : Int
-    , cells : Dict.Dict Location CellColor
+    , cells : Dict.Dict Location Cell
+    }
+
+
+type alias Cell =
+    { color : CellColor
+    , locked : Bool
     }
 
 
 type alias DenseModel =
     { width : Int
     , height : Int
-    , cells : List (List CellColor)
+    , cells : List (List Cell)
     }
 
 
@@ -65,7 +71,11 @@ white =
 sparseFromInput : SparseModelInput -> SparseModel
 sparseFromInput cells =
     -- assumes cells are legal positions
-    { width = cells.width, height = cells.height, cells = Dict.fromList cells.cells }
+    let
+        newCells =
+            List.map (\( loc, clr ) -> ( loc, { color = clr, locked = True } )) cells.cells
+    in
+    { width = cells.width, height = cells.height, cells = Dict.fromList newCells }
 
 
 denseFromSparse : SparseModel -> DenseModel
@@ -75,21 +85,21 @@ denseFromSparse sparse =
         dense =
             { width = sparse.width
             , height = sparse.height
-            , cells = List.repeat sparse.height (List.repeat sparse.width unassigned)
+            , cells = List.repeat sparse.height (List.repeat sparse.width { color = unassigned, locked = False })
             }
 
-        updateRowFromSparse : Int -> List CellColor -> List CellColor
+        updateRowFromSparse : Int -> List Cell -> List Cell
         updateRowFromSparse rowIndex rowCells =
             List.indexedMap (updateColumnFromSparse rowIndex) rowCells
 
-        updateColumnFromSparse : Int -> Int -> CellColor -> CellColor
-        updateColumnFromSparse rowIndex columnIndex clr =
+        updateColumnFromSparse : Int -> Int -> Cell -> Cell
+        updateColumnFromSparse rowIndex columnIndex cell =
             case Dict.get ( rowIndex, columnIndex ) sparse.cells of
                 Nothing ->
-                    clr
+                    cell
 
-                Just newClr ->
-                    newClr
+                Just newCell ->
+                    newCell
     in
     { width = sparse.width
     , height = sparse.height
@@ -100,19 +110,22 @@ denseFromSparse sparse =
 updateGrid : Location -> CellColor -> SparseModel -> SparseModel
 updateGrid loc clr sparse =
     let
-        newClr =
+        newCell =
             case Dict.get loc sparse.cells of
                 Nothing ->
-                    clr
+                    { color = clr, locked = False }
 
-                Just oldClr ->
-                    if oldClr == clr then
-                        unassigned
+                Just oldCell ->
+                    if oldCell.locked then
+                        oldCell
+
+                    else if oldCell.color == clr then
+                        { oldCell | color = unassigned }
 
                     else
-                        clr
+                        { oldCell | color = clr }
     in
-    { sparse | cells = Dict.insert loc newClr sparse.cells }
+    { sparse | cells = Dict.insert loc newCell sparse.cells }
 
 
 
@@ -139,7 +152,7 @@ svgGrid viewportWidth viewportHeight sparse =
         List.indexedMap (\r rw -> rowView r dense.width cellSize rw) dense.cells
 
 
-rowView : Int -> Int -> Int -> List CellColor -> Element Msg
+rowView : Int -> Int -> Int -> List Cell -> Element Msg
 rowView rowIndex gridWidth cellSize rowCells =
     row
         [ centerX
@@ -151,18 +164,8 @@ rowView rowIndex gridWidth cellSize rowCells =
         List.indexedMap (\columnIndex cell -> dot ( rowIndex, columnIndex ) cellSize cell) rowCells
 
 
-onRightClick loc =
-    Html.Events.custom "contextmenu"
-        (Decode.succeed
-            { message = CellRightClicked loc
-            , stopPropagation = True
-            , preventDefault = True
-            }
-        )
-
-
-dot : Location -> Int -> CellColor -> Element Msg
-dot loc cellSize clr =
+dot : Location -> Int -> Cell -> Element Msg
+dot loc cellSize cell =
     let
         cx =
             String.fromInt <| round (toFloat cellSize / 2)
@@ -177,9 +180,17 @@ dot loc cellSize clr =
         side =
             String.fromInt cellSize
 
-        square =
+        square locked =
+            let
+                fillColor =
+                    if locked then
+                        "lightgreen"
+
+                    else
+                        "lightgray"
+            in
             S.rect
-                [ SA.fill "lightgray"
+                [ SA.fill fillColor
                 , SA.stroke "black"
                 , SA.strokeWidth "3"
                 , SA.width side
@@ -189,12 +200,12 @@ dot loc cellSize clr =
                 ]
                 []
 
-        circle fillClr =
+        circle fillColor =
             S.circle
                 [ SA.cx cx
                 , SA.cy cy
                 , SA.r radius
-                , SA.fill fillClr
+                , SA.fill fillColor
                 , SA.stroke "darkgray"
                 , SA.strokeWidth "3"
                 ]
@@ -209,8 +220,8 @@ dot loc cellSize clr =
     <|
         Element.html <|
             S.svg [ SA.height side ]
-                (square
-                    :: (case clr of
+                (square cell.locked
+                    :: (case cell.color of
                             Nothing ->
                                 []
 
@@ -218,3 +229,13 @@ dot loc cellSize clr =
                                 [ circle fillClr ]
                        )
                 )
+
+
+onRightClick loc =
+    Html.Events.custom "contextmenu"
+        (Decode.succeed
+            { message = CellRightClicked loc
+            , stopPropagation = True
+            , preventDefault = True
+            }
+        )
