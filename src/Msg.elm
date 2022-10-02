@@ -10,3 +10,4 @@ type Msg
     | ViewPortChanged (Result Dom.Error Dom.Viewport)
     | CellLeftClicked Location
     | CellRightClicked Location
+    | CellHighlighted (Maybe Location)

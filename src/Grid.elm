@@ -4,8 +4,8 @@ import Dict
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
-import Element.Events exposing (onClick)
-import Html.Events exposing (custom)
+import Element.Events exposing (onClick, onMouseLeave)
+import Html.Events exposing (custom, onMouseOver)
 import Json.Decode as Decode
 import Location exposing (..)
 import Msg exposing (..)
@@ -26,6 +26,7 @@ type alias SparseModel =
     { width : Int
     , height : Int
     , cells : Dict.Dict Location Cell
+    , highlightedCell : Maybe Location
     }
 
 
@@ -39,6 +40,7 @@ type alias DenseModel =
     { width : Int
     , height : Int
     , cells : List (List Cell)
+    , highlightedCell : Maybe Location
     }
 
 
@@ -75,7 +77,11 @@ sparseFromInput cells =
         newCells =
             List.map (\( loc, clr ) -> ( loc, { color = clr, locked = True } )) cells.cells
     in
-    { width = cells.width, height = cells.height, cells = Dict.fromList newCells }
+    { width = cells.width
+    , height = cells.height
+    , cells = Dict.fromList newCells
+    , highlightedCell = Nothing
+    }
 
 
 denseFromSparse : SparseModel -> DenseModel
@@ -86,6 +92,7 @@ denseFromSparse sparse =
             { width = sparse.width
             , height = sparse.height
             , cells = List.repeat sparse.height (List.repeat sparse.width { color = unassigned, locked = False })
+            , highlightedCell = sparse.highlightedCell
             }
 
         updateRowFromSparse : Int -> List Cell -> List Cell
@@ -104,6 +111,7 @@ denseFromSparse sparse =
     { width = sparse.width
     , height = sparse.height
     , cells = List.indexedMap updateRowFromSparse dense.cells
+    , highlightedCell = dense.highlightedCell
     }
 
 
@@ -128,12 +136,17 @@ updateGrid loc clr sparse =
     { sparse | cells = Dict.insert loc newCell sparse.cells }
 
 
+updateHighlightedCell : SparseModel -> Maybe Location -> SparseModel
+updateHighlightedCell sparse mloc =
+    { sparse | highlightedCell = mloc }
+
+
 
 ---- VIEW ----
 
 
-svgGrid : Float -> Float -> SparseModel -> Element Msg
-svgGrid viewportWidth viewportHeight sparse =
+view : Float -> Float -> SparseModel -> Element Msg
+view viewportWidth viewportHeight sparse =
     let
         dense =
             denseFromSparse sparse
@@ -148,12 +161,19 @@ svgGrid viewportWidth viewportHeight sparse =
         cellSize =
             cellSizeFromViewport viewportWidth viewportHeight dense.width dense.height
     in
-    column [ centerX, centerY, Border.color (rgb 0 0 0), Border.width 1 ] <|
-        List.indexedMap (\r rw -> rowView r dense.width cellSize rw) dense.cells
+    column
+        [ centerX
+        , centerY
+        , Border.color (rgb 0 0 0)
+        , Border.width 1
+        , onMouseLeave (CellHighlighted Nothing)
+        ]
+    <|
+        List.indexedMap (\r rw -> rowView r dense.width cellSize dense.highlightedCell rw) dense.cells
 
 
-rowView : Int -> Int -> Int -> List Cell -> Element Msg
-rowView rowIndex gridWidth cellSize rowCells =
+rowView : Int -> Int -> Int -> Maybe Location -> List Cell -> Element Msg
+rowView rowIndex gridWidth cellSize mHighlightedCell rowCells =
     row
         [ centerX
         , centerY
@@ -161,11 +181,11 @@ rowView rowIndex gridWidth cellSize rowCells =
         , height (px cellSize)
         ]
     <|
-        List.indexedMap (\columnIndex cell -> dot ( rowIndex, columnIndex ) cellSize cell) rowCells
+        List.indexedMap (\columnIndex cell -> dot ( rowIndex, columnIndex ) cellSize mHighlightedCell cell) rowCells
 
 
-dot : Location -> Int -> Cell -> Element Msg
-dot loc cellSize cell =
+dot : Location -> Int -> Maybe Location -> Cell -> Element Msg
+dot loc cellSize mHighlightedCell cell =
     let
         cx =
             String.fromInt <| round (toFloat cellSize / 2)
@@ -182,12 +202,24 @@ dot loc cellSize cell =
 
         square locked =
             let
-                fillColor =
+                defaultFillColor =
                     if locked then
                         "lightgreen"
 
                     else
                         "lightgray"
+
+                fillColor =
+                    case mHighlightedCell of
+                        Nothing ->
+                            defaultFillColor
+
+                        Just loc2 ->
+                            if loc == loc2 then
+                                "yellow"
+
+                            else
+                                defaultFillColor
             in
             S.rect
                 [ SA.fill fillColor
@@ -197,6 +229,7 @@ dot loc cellSize cell =
                 , SA.height side
                 , SA.x "0"
                 , SA.y "0"
+                , onMouseOver (CellHighlighted (Just loc))
                 ]
                 []
 

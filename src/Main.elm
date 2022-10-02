@@ -18,6 +18,7 @@ import Task exposing (..)
 type alias Model =
     { grid : Grid.Model
     , initialCells : Grid.SparseModelInput
+    , cellHoveredOver : Maybe Location
     , viewportWidth : Float
     , viewportHeight : Float
     , error : Maybe String
@@ -55,6 +56,7 @@ initialModel : Model
 initialModel =
     { grid = Grid.sparseFromInput initialCells
     , initialCells = initialCells
+    , cellHoveredOver = Nothing
     , viewportWidth = 1.0 -- placeholder
     , viewportHeight = 1.0 -- placeholder
     , error = Nothing
@@ -88,6 +90,9 @@ update msg model =
         CellRightClicked loc ->
             cellClicked model loc Grid.white
 
+        CellHighlighted mloc ->
+            updateHighlightedCell model mloc
+
 
 refreshViewport : Cmd Msg
 refreshViewport =
@@ -120,6 +125,15 @@ cellClicked model loc clr =
     ( newModel, Cmd.none )
 
 
+updateHighlightedCell : Model -> Maybe Location -> ( Model, Cmd Msg )
+updateHighlightedCell model mloc =
+    let
+        newModel =
+            { model | grid = Grid.updateHighlightedCell model.grid mloc }
+    in
+    ( newModel, Cmd.none )
+
+
 
 ---- VIEW ----
 
@@ -127,7 +141,7 @@ cellClicked model loc clr =
 view : Model -> Html Msg
 view model =
     Element.layout [] <|
-        Grid.svgGrid model.viewportWidth model.viewportHeight model.grid
+        Grid.view model.viewportWidth model.viewportHeight model.grid
 
 
 
