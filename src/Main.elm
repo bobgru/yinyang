@@ -86,9 +86,11 @@ update msg model =
 
         CellLeftClicked loc ->
             cellClicked model loc Grid.black
+                |> (\( mdl, _ ) -> updateHighlightedCell mdl (Just loc))
 
         CellRightClicked loc ->
             cellClicked model loc Grid.white
+                |> (\( mdl, _ ) -> updateHighlightedCell mdl (Just loc))
 
         CellHighlighted mloc ->
             updateHighlightedCell model mloc

@@ -29,6 +29,7 @@ type alias SparseModel =
     , cells : Dict.Dict Location Cell
     , highlightedCell : Maybe Location
     , connectedCells : Set.Set Location
+    , errorCells : Set.Set Location
     }
 
 
@@ -44,6 +45,7 @@ type alias DenseModel =
     , cells : List (List Cell)
     , highlightedCell : Maybe Location
     , connectedCells : Set.Set Location
+    , errorCells : Set.Set Location
     }
 
 
@@ -85,6 +87,7 @@ sparseFromInput cells =
     , cells = Dict.fromList newCells
     , highlightedCell = Nothing
     , connectedCells = Set.empty
+    , errorCells = Set.empty
     }
 
 
@@ -98,6 +101,7 @@ denseFromSparse sparse =
             , cells = List.repeat sparse.height (List.repeat sparse.width { color = unassigned, locked = False })
             , highlightedCell = sparse.highlightedCell
             , connectedCells = sparse.connectedCells
+            , errorCells = sparse.errorCells
             }
 
         updateRowFromSparse : Int -> List Cell -> List Cell
@@ -118,6 +122,7 @@ denseFromSparse sparse =
     , cells = List.indexedMap updateRowFromSparse dense.cells
     , highlightedCell = dense.highlightedCell
     , connectedCells = dense.connectedCells
+    , errorCells = dense.errorCells
     }
 
 
@@ -153,7 +158,51 @@ updateHighlightedCell sparse mloc =
 
                 Just loc ->
                     getConnectedCells sparse loc
+        , errorCells =
+            case mloc of
+                Nothing ->
+                    Set.empty
+
+                Just loc ->
+                    getErrorCells sparse loc
     }
+
+
+getErrorCells : SparseModel -> Location -> Set.Set Location
+getErrorCells sparse loc =
+    case Dict.get loc sparse.cells of
+        Nothing ->
+            Set.empty
+
+        Just cell ->
+            getErrorCells2 sparse loc cell
+
+
+getErrorCells2 : SparseModel -> Location -> Cell -> Set.Set Location
+getErrorCells2 sparse loc cell =
+    let
+        sameColor : Location -> Bool
+        sameColor loc2 =
+            case Dict.get loc2 sparse.cells of
+                Nothing ->
+                    False
+
+                Just cell2 ->
+                    cell2.color == cell.color
+
+        isGroupError : List Location -> Bool
+        isGroupError testCells =
+            List.all sameColor testCells
+
+        neighborGroups : Location -> List (List Location)
+        neighborGroups ( r, c ) =
+            [ [ ( r - 1, c - 1 ), ( r - 1, c ), ( r, c - 1 ), ( r, c ) ]
+            , [ ( r - 1, c ), ( r - 1, c + 1 ), ( r, c ), ( r, c + 1 ) ]
+            , [ ( r, c - 1 ), ( r, c ), ( r + 1, c - 1 ), ( r + 1, c ) ]
+            , [ ( r, c ), ( r, c + 1 ), ( r + 1, c ), ( r + 1, c + 1 ) ]
+            ]
+    in
+    Set.fromList <| List.concat <| List.filter isGroupError <| neighborGroups loc
 
 
 getConnectedCells : SparseModel -> Location -> Set.Set Location
@@ -244,11 +293,21 @@ view viewportWidth viewportHeight sparse =
         , onMouseLeave (CellHighlighted Nothing)
         ]
     <|
-        List.indexedMap (\r rw -> rowView r dense.width cellSize dense.highlightedCell dense.connectedCells rw) dense.cells
+        List.indexedMap
+            (\r rw ->
+                rowView r
+                    dense.width
+                    cellSize
+                    dense.highlightedCell
+                    dense.connectedCells
+                    dense.errorCells
+                    rw
+            )
+            dense.cells
 
 
-rowView : Int -> Int -> Int -> Maybe Location -> Set.Set Location -> List Cell -> Element Msg
-rowView rowIndex gridWidth cellSize mHighlightedCell connectedCells rowCells =
+rowView : Int -> Int -> Int -> Maybe Location -> Set.Set Location -> Set.Set Location -> List Cell -> Element Msg
+rowView rowIndex gridWidth cellSize mHighlightedCell connectedCells errorCells rowCells =
     row
         [ centerX
         , centerY
@@ -256,11 +315,20 @@ rowView rowIndex gridWidth cellSize mHighlightedCell connectedCells rowCells =
         , height (px cellSize)
         ]
     <|
-        List.indexedMap (\columnIndex cell -> dot ( rowIndex, columnIndex ) cellSize mHighlightedCell connectedCells cell) rowCells
+        List.indexedMap
+            (\columnIndex cell ->
+                dot ( rowIndex, columnIndex )
+                    cellSize
+                    mHighlightedCell
+                    connectedCells
+                    errorCells
+                    cell
+            )
+            rowCells
 
 
-dot : Location -> Int -> Maybe Location -> Set.Set Location -> Cell -> Element Msg
-dot loc cellSize mHighlightedCell connectedCells cell =
+dot : Location -> Int -> Maybe Location -> Set.Set Location -> Set.Set Location -> Cell -> Element Msg
+dot loc cellSize mHighlightedCell connectedCells errorCells cell =
     let
         cx =
             String.fromInt <| round (toFloat cellSize / 2)
@@ -277,6 +345,9 @@ dot loc cellSize mHighlightedCell connectedCells cell =
 
         square locked =
             let
+                isError =
+                    Set.member loc errorCells
+
                 inConnectedSet =
                     Set.member loc connectedCells
 
@@ -296,7 +367,10 @@ dot loc cellSize mHighlightedCell connectedCells cell =
                         "lightgray"
 
                 fillColor =
-                    if inConnectedSet then
+                    if isError then
+                        "red"
+
+                    else if inConnectedSet then
                         "blue"
 
                     else if highlighted then
