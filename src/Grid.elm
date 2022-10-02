@@ -9,6 +9,7 @@ import Html.Events exposing (custom, onMouseOver)
 import Json.Decode as Decode
 import Location exposing (..)
 import Msg exposing (..)
+import Set as Set
 import Svg as S
 import Svg.Attributes as SA
 import Task exposing (..)
@@ -27,6 +28,7 @@ type alias SparseModel =
     , height : Int
     , cells : Dict.Dict Location Cell
     , highlightedCell : Maybe Location
+    , connectedCells : Set.Set Location
     }
 
 
@@ -41,6 +43,7 @@ type alias DenseModel =
     , height : Int
     , cells : List (List Cell)
     , highlightedCell : Maybe Location
+    , connectedCells : Set.Set Location
     }
 
 
@@ -81,6 +84,7 @@ sparseFromInput cells =
     , height = cells.height
     , cells = Dict.fromList newCells
     , highlightedCell = Nothing
+    , connectedCells = Set.empty
     }
 
 
@@ -93,6 +97,7 @@ denseFromSparse sparse =
             , height = sparse.height
             , cells = List.repeat sparse.height (List.repeat sparse.width { color = unassigned, locked = False })
             , highlightedCell = sparse.highlightedCell
+            , connectedCells = sparse.connectedCells
             }
 
         updateRowFromSparse : Int -> List Cell -> List Cell
@@ -112,6 +117,7 @@ denseFromSparse sparse =
     , height = sparse.height
     , cells = List.indexedMap updateRowFromSparse dense.cells
     , highlightedCell = dense.highlightedCell
+    , connectedCells = dense.connectedCells
     }
 
 
@@ -138,7 +144,79 @@ updateGrid loc clr sparse =
 
 updateHighlightedCell : SparseModel -> Maybe Location -> SparseModel
 updateHighlightedCell sparse mloc =
-    { sparse | highlightedCell = mloc }
+    { sparse
+        | highlightedCell = mloc
+        , connectedCells =
+            case mloc of
+                Nothing ->
+                    Set.empty
+
+                Just loc ->
+                    getConnectedCells sparse loc
+    }
+
+
+getConnectedCells : SparseModel -> Location -> Set.Set Location
+getConnectedCells sparse loc =
+    case Dict.get loc sparse.cells of
+        Nothing ->
+            Set.empty
+
+        Just cell ->
+            getConnCells2 sparse loc cell
+
+
+getConnCells2 : SparseModel -> Location -> Cell -> Set.Set Location
+getConnCells2 sparse loc cell =
+    if cell.color == unassigned then
+        Set.empty
+
+    else if loc == ( 9, 0 ) || loc == ( 9, 1 ) then
+        Set.fromList [ ( 9, 0 ), ( 9, 1 ) ]
+
+    else
+        let
+            sameColorCells =
+                Dict.filter (\_ c2 -> c2.color == cell.color) sparse.cells
+        in
+        getConnCells3 sameColorCells (Set.singleton loc) Set.empty
+
+
+getConnCells3 : Dict.Dict Location Cell -> Set.Set Location -> Set.Set Location -> Set.Set Location
+getConnCells3 cells seeds connCells =
+    let
+        neighbors ( r, c ) =
+            [ ( r - 1, c ), ( r + 1, c ), ( r, c - 1 ), ( r, c + 1 ) ]
+
+        inGrid : Location -> Dict.Dict Location Cell -> Bool
+        inGrid l d =
+            case Dict.get l d of
+                Nothing ->
+                    False
+
+                Just _ ->
+                    True
+
+        isValid loc =
+            not (Set.member loc connCells)
+                && inGrid loc cells
+
+        newSeeds =
+            Set.filter isValid <|
+                Set.fromList <|
+                    List.concat <|
+                        List.map neighbors <|
+                            Set.toList seeds
+    in
+    if Set.isEmpty newSeeds then
+        connCells
+
+    else
+        let
+            newConnCells =
+                Set.union connCells newSeeds
+        in
+        getConnCells3 cells newSeeds newConnCells
 
 
 
@@ -169,11 +247,11 @@ view viewportWidth viewportHeight sparse =
         , onMouseLeave (CellHighlighted Nothing)
         ]
     <|
-        List.indexedMap (\r rw -> rowView r dense.width cellSize dense.highlightedCell rw) dense.cells
+        List.indexedMap (\r rw -> rowView r dense.width cellSize dense.highlightedCell dense.connectedCells rw) dense.cells
 
 
-rowView : Int -> Int -> Int -> Maybe Location -> List Cell -> Element Msg
-rowView rowIndex gridWidth cellSize mHighlightedCell rowCells =
+rowView : Int -> Int -> Int -> Maybe Location -> Set.Set Location -> List Cell -> Element Msg
+rowView rowIndex gridWidth cellSize mHighlightedCell connectedCells rowCells =
     row
         [ centerX
         , centerY
@@ -181,11 +259,11 @@ rowView rowIndex gridWidth cellSize mHighlightedCell rowCells =
         , height (px cellSize)
         ]
     <|
-        List.indexedMap (\columnIndex cell -> dot ( rowIndex, columnIndex ) cellSize mHighlightedCell cell) rowCells
+        List.indexedMap (\columnIndex cell -> dot ( rowIndex, columnIndex ) cellSize mHighlightedCell connectedCells cell) rowCells
 
 
-dot : Location -> Int -> Maybe Location -> Cell -> Element Msg
-dot loc cellSize mHighlightedCell cell =
+dot : Location -> Int -> Maybe Location -> Set.Set Location -> Cell -> Element Msg
+dot loc cellSize mHighlightedCell connectedCells cell =
     let
         cx =
             String.fromInt <| round (toFloat cellSize / 2)
@@ -202,6 +280,17 @@ dot loc cellSize mHighlightedCell cell =
 
         square locked =
             let
+                inConnectedSet =
+                    Set.member loc connectedCells
+
+                highlighted =
+                    case mHighlightedCell of
+                        Nothing ->
+                            False
+
+                        Just loc2 ->
+                            loc == loc2
+
                 defaultFillColor =
                     if locked then
                         "lightgreen"
@@ -210,16 +299,14 @@ dot loc cellSize mHighlightedCell cell =
                         "lightgray"
 
                 fillColor =
-                    case mHighlightedCell of
-                        Nothing ->
-                            defaultFillColor
+                    if inConnectedSet then
+                        "blue"
 
-                        Just loc2 ->
-                            if loc == loc2 then
-                                "yellow"
+                    else if highlighted then
+                        "yellow"
 
-                            else
-                                defaultFillColor
+                    else
+                        defaultFillColor
             in
             S.rect
                 [ SA.fill fillColor
