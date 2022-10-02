@@ -171,9 +171,6 @@ getConnCells2 sparse loc cell =
     if cell.color == unassigned then
         Set.empty
 
-    else if loc == ( 9, 0 ) || loc == ( 9, 1 ) then
-        Set.fromList [ ( 9, 0 ), ( 9, 1 ) ]
-
     else
         let
             sameColorCells =
