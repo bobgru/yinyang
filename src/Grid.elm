@@ -91,6 +91,30 @@ sparseFromInput cells =
     }
 
 
+sparseFromDense : DenseModel -> SparseModel
+sparseFromDense dense =
+    let
+        foldRow : Int -> List Cell -> Dict.Dict Location Cell
+        foldRow rowIndex rowCells =
+            let
+                singletons =
+                    List.indexedMap (\columnIndex cell -> Dict.singleton ( rowIndex, columnIndex ) cell) rowCells
+            in
+            List.foldr Dict.union Dict.empty singletons
+
+        newCells : Dict.Dict Location Cell
+        newCells =
+            List.foldr Dict.union Dict.empty <| List.indexedMap foldRow dense.cells
+    in
+    { cells = newCells
+    , width = dense.width
+    , height = dense.height
+    , highlightedCell = dense.highlightedCell
+    , connectedCells = dense.connectedCells
+    , errorCells = dense.errorCells
+    }
+
+
 denseFromSparse : SparseModel -> DenseModel
 denseFromSparse sparse =
     let
@@ -149,22 +173,85 @@ updateGrid loc clr sparse =
 
 updateHighlightedCell : SparseModel -> Maybe Location -> SparseModel
 updateHighlightedCell sparse mloc =
+    let
+        connectedCellsPlus : Set.Set Location
+        connectedCellsPlus =
+            if Set.isEmpty connectedCells then
+                case mloc of
+                    Nothing ->
+                        Set.empty
+
+                    Just loc ->
+                        Set.singleton loc
+
+            else
+                connectedCells
+
+        connectedCells : Set.Set Location
+        connectedCells =
+            case mloc of
+                Nothing ->
+                    Set.empty
+
+                Just loc ->
+                    let
+                        mCell =
+                            Dict.get loc sparse.cells
+
+                        clr =
+                            Maybe.map (\c2 -> c2.color) mCell |> Maybe.withDefault unassigned
+                    in
+                    if clr == unassigned then
+                        Set.empty
+
+                    else
+                        getConnectedCells (matchColor clr) sparse.cells loc
+
+        errorCells : Set.Set Location
+        errorCells =
+            let
+                errorInComplement =
+                    case mloc of
+                        Nothing ->
+                            False
+
+                        Just loc ->
+                            let
+                                mCell =
+                                    Dict.get loc sparse.cells
+
+                                clr =
+                                    Maybe.map (\c2 -> c2.color) mCell |> Maybe.withDefault unassigned
+                            in
+                            if clr == unassigned then
+                                False
+
+                            else
+                                let
+                                    connectedComplements : List (Set.Set Location)
+                                    connectedComplements =
+                                        getConnectedComplements connectedCellsPlus sparse
+                                in
+                                List.length connectedComplements > 1
+
+                twoByTwoErrors =
+                    case mloc of
+                        Nothing ->
+                            Set.empty
+
+                        Just loc ->
+                            getErrorCells sparse loc
+            in
+            if errorInComplement then
+                Set.union twoByTwoErrors connectedCellsPlus
+
+            else
+                twoByTwoErrors
+    in
     { sparse
         | highlightedCell = mloc
-        , connectedCells =
-            case mloc of
-                Nothing ->
-                    Set.empty
-
-                Just loc ->
-                    getConnectedCells sparse loc
-        , errorCells =
-            case mloc of
-                Nothing ->
-                    Set.empty
-
-                Just loc ->
-                    getErrorCells sparse loc
+        , connectedCells = connectedCells
+        , errorCells = errorCells
     }
 
 
@@ -205,27 +292,56 @@ getErrorCells2 sparse loc cell =
     Set.fromList <| List.concat <| List.filter isGroupError <| neighborGroups loc
 
 
-getConnectedCells : SparseModel -> Location -> Set.Set Location
-getConnectedCells sparse loc =
-    case Dict.get loc sparse.cells of
+matchColor : CellColor -> Maybe Cell -> Bool
+matchColor clr mCell =
+    case mCell of
         Nothing ->
-            Set.empty
+            False
 
         Just cell ->
-            getConnCells2 sparse loc cell
+            cell.color == clr
 
 
-getConnCells2 : SparseModel -> Location -> Cell -> Set.Set Location
-getConnCells2 sparse loc cell =
-    if cell.color == unassigned then
-        Set.empty
+matchOpposite : CellColor -> Maybe Cell -> Bool
+matchOpposite clr mCell =
+    case mCell of
+        Nothing ->
+            True
+
+        Just cell ->
+            cell.color /= clr
+
+
+matchUnassigned : CellColor -> Maybe Cell -> Bool
+matchUnassigned _ mCell =
+    case mCell of
+        Nothing ->
+            True
+
+        Just cell ->
+            cell.color == unassigned
+
+
+getConnectedCells : (Maybe Cell -> Bool) -> Dict.Dict Location Cell -> Location -> Set.Set Location
+getConnectedCells match cells loc =
+    let
+        mCell =
+            Dict.get loc cells
+    in
+    if match mCell then
+        getConnCells2 match cells loc
 
     else
-        let
-            sameColorCells =
-                Dict.filter (\_ c2 -> c2.color == cell.color) sparse.cells
-        in
-        getConnCells3 sameColorCells (Set.singleton loc) Set.empty
+        Set.empty
+
+
+getConnCells2 : (Maybe Cell -> Bool) -> Dict.Dict Location Cell -> Location -> Set.Set Location
+getConnCells2 match cells loc =
+    let
+        sameColorCells =
+            Dict.filter (\_ c2 -> match (Just c2)) cells
+    in
+    getConnCells3 sameColorCells (Set.singleton loc) Set.empty
 
 
 getConnCells3 : Dict.Dict Location Cell -> Set.Set Location -> Set.Set Location -> Set.Set Location
@@ -263,6 +379,96 @@ getConnCells3 cells seeds connCells =
                 Set.union connCells newSeeds
         in
         getConnCells3 cells newSeeds newConnCells
+
+
+complementFromSparse : SparseModel -> CellColor -> SparseModel
+complementFromSparse sparse clr =
+    let
+        d =
+            denseFromSparse sparse
+
+        s =
+            sparseFromDense d
+
+        newCells =
+            Dict.filter (\_ c -> matchOpposite clr (Just c)) s.cells
+    in
+    { sparse | cells = newCells }
+
+
+getConnectedComplements : Set.Set Location -> SparseModel -> List (Set.Set Location)
+getConnectedComplements connCells sparse =
+    -- TODO try to avoid calling with empty connCells
+    if Set.isEmpty connCells then
+        []
+
+    else
+        let
+            -- Get color of connected cells so we can look for the opposite.
+            -- connCells is non-empty so default for connLoc and connClr is just for type-checking.
+            connLoc =
+                Set.toList connCells |> List.head |> Maybe.withDefault ( 0, 0 )
+
+            connClr =
+                Dict.get connLoc sparse.cells |> Maybe.map (\c -> c.color) |> Maybe.withDefault black
+
+            -- Complement the entire sparse model. This means we have to create a dense model then
+            -- convert back to sparse first.
+            compSparse =
+                complementFromSparse sparse connClr
+        in
+        getConnectedComplements2 compSparse.cells []
+
+
+
+-- sparse is already the complement so we are really finding all the connected cell groups within it
+
+
+getConnectedComplements2 : Dict.Dict Location Cell -> List (Set.Set Location) -> List (Set.Set Location)
+getConnectedComplements2 cells acc =
+    if Dict.isEmpty cells then
+        acc
+
+    else
+        let
+            -- cells cannot be empty, so default is irrelevant
+            loc =
+                x4
+
+            x1 : List ( Location, Cell )
+            x1 =
+                Dict.toList cells
+
+            x2 : Maybe ( Location, Cell )
+            x2 =
+                List.head x1
+
+            x3 : Maybe Location
+            x3 =
+                Maybe.map (\( k, _ ) -> k) x2
+
+            x4 : Location
+            x4 =
+                Maybe.withDefault ( 0, 0 ) x3
+
+            connCells =
+                let
+                    connCells2 =
+                        getConnectedCells (\_ -> True) cells loc
+                in
+                if Set.isEmpty connCells2 then
+                    Set.singleton loc
+
+                else
+                    connCells2
+
+            newAcc =
+                connCells :: acc
+
+            newCells =
+                Dict.filter (\k _ -> not (Set.member k connCells)) cells
+        in
+        getConnectedComplements2 newCells newAcc
 
 
 

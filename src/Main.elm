@@ -8,6 +8,7 @@ import Grid as Grid exposing (black, unassigned, white)
 import Html exposing (Html)
 import Location exposing (..)
 import Msg exposing (..)
+import Stack exposing (..)
 import Task exposing (..)
 
 
@@ -17,6 +18,7 @@ import Task exposing (..)
 
 type alias Model =
     { grid : Grid.Model
+    , snapshots : Stack Grid.Model
     , initialCells : Grid.SparseModelInput
     , cellHoveredOver : Maybe Location
     , viewportWidth : Float
@@ -55,6 +57,7 @@ initialCells =
 initialModel : Model
 initialModel =
     { grid = Grid.sparseFromInput initialCells
+    , snapshots = Stack.initialise
     , initialCells = initialCells
     , cellHoveredOver = Nothing
     , viewportWidth = 1.0 -- placeholder
