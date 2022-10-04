@@ -127,31 +127,23 @@ sparseFromDense dense =
 denseFromSparse : SparseGrid -> DenseGrid
 denseFromSparse sparse =
     let
-        dense : DenseGrid
-        dense =
-            { width = sparse.width
-            , height = sparse.height
-            , cells =
-                List.repeat sparse.height
-                    (List.repeat sparse.width { color = unassigned, locked = False })
-            }
+        denseCells : DenseCells
+        denseCells =
+            List.repeat sparse.height
+                (List.repeat sparse.width { color = unassigned, locked = False })
 
         updateRowFromSparse : Int -> List Cell -> List Cell
-        updateRowFromSparse rowIndex rowCells =
-            List.indexedMap (updateColumnFromSparse rowIndex) rowCells
+        updateRowFromSparse r cells =
+            List.indexedMap (updateColumnFromSparse r) cells
 
         updateColumnFromSparse : Int -> Int -> Cell -> Cell
-        updateColumnFromSparse rowIndex columnIndex cell =
-            case Dict.get ( rowIndex, columnIndex ) sparse.cells of
-                Nothing ->
-                    cell
-
-                Just newCell ->
-                    newCell
+        updateColumnFromSparse r c cell =
+            Maybe.withDefault cell <|
+                Dict.get ( r, c ) sparse.cells
     in
     { width = sparse.width
     , height = sparse.height
-    , cells = List.indexedMap updateRowFromSparse dense.cells
+    , cells = List.indexedMap updateRowFromSparse denseCells
     }
 
 
