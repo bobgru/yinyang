@@ -19,7 +19,7 @@ import Task exposing (..)
 type alias Model =
     { grid : Grid.Model
     , snapshots : Stack Grid.Model
-    , initialCells : Grid.SparseModelInput
+    , initialCells : Grid.SparseGridInput
     , cellHoveredOver : Maybe Location
     , viewportWidth : Float
     , viewportHeight : Float
@@ -27,7 +27,7 @@ type alias Model =
     }
 
 
-initialCells : Grid.SparseModelInput
+initialCells : Grid.SparseGridInput
 initialCells =
     { width = 10
     , height = 10
@@ -56,7 +56,7 @@ initialCells =
 
 initialModel : Model
 initialModel =
-    { grid = Grid.sparseFromInput initialCells
+    { grid = Grid.initialModel initialCells
     , snapshots = Stack.initialise
     , initialCells = initialCells
     , cellHoveredOver = Nothing
@@ -85,18 +85,18 @@ update msg model =
             ( model, refreshViewport )
 
         ViewPortChanged viewportResult ->
-            viewPortChanged model viewportResult
+            updateViewPort model viewportResult
 
         CellLeftClicked loc ->
-            cellClicked model loc Grid.black
-                |> (\( mdl, _ ) -> updateHighlightedCell mdl (Just loc))
+            updateCellColor model loc Grid.black
+                |> (\( mdl, _ ) -> highlightCells mdl (Just loc))
 
         CellRightClicked loc ->
-            cellClicked model loc Grid.white
-                |> (\( mdl, _ ) -> updateHighlightedCell mdl (Just loc))
+            updateCellColor model loc Grid.white
+                |> (\( mdl, _ ) -> highlightCells mdl (Just loc))
 
         CellHighlighted mloc ->
-            updateHighlightedCell model mloc
+            highlightCells model mloc
 
 
 refreshViewport : Cmd Msg
@@ -104,7 +104,7 @@ refreshViewport =
     Task.attempt ViewPortChanged Dom.getViewport
 
 
-viewPortChanged model viewportResult =
+updateViewPort model viewportResult =
     case viewportResult of
         Ok viewport ->
             let
@@ -121,20 +121,20 @@ viewPortChanged model viewportResult =
             ( { model | error = Just "no viewport" }, Cmd.none )
 
 
-cellClicked : Model -> Location -> Grid.CellColor -> ( Model, Cmd Msg )
-cellClicked model loc clr =
+updateCellColor : Model -> Location -> Grid.CellColor -> ( Model, Cmd Msg )
+updateCellColor model loc clr =
     let
         newModel =
-            { model | grid = Grid.updateGrid loc clr model.grid }
+            { model | grid = Grid.updateCellColor loc clr model.grid }
     in
     ( newModel, Cmd.none )
 
 
-updateHighlightedCell : Model -> Maybe Location -> ( Model, Cmd Msg )
-updateHighlightedCell model mloc =
+highlightCells : Model -> Maybe Location -> ( Model, Cmd Msg )
+highlightCells model mloc =
     let
         newModel =
-            { model | grid = Grid.updateHighlightedCell model.grid mloc }
+            { model | grid = Grid.highlightedCells model.grid mloc }
     in
     ( newModel, Cmd.none )
 

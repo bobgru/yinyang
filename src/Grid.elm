@@ -20,17 +20,22 @@ import Task exposing (..)
 
 
 type alias Model =
-    SparseModel
-
-
-type alias SparseModel =
-    { width : Int
-    , height : Int
-    , cells : Dict.Dict Location Cell
+    { grid : SparseGrid
     , highlightedCell : Maybe Location
     , connectedCells : Set.Set Location
     , errorCells : Set.Set Location
     }
+
+
+type alias SparseGrid =
+    { width : Int
+    , height : Int
+    , cells : SparseCells
+    }
+
+
+type alias SparseCells =
+    Dict.Dict Location Cell
 
 
 type alias Cell =
@@ -39,17 +44,18 @@ type alias Cell =
     }
 
 
-type alias DenseModel =
+type alias DenseGrid =
     { width : Int
     , height : Int
-    , cells : List (List Cell)
-    , highlightedCell : Maybe Location
-    , connectedCells : Set.Set Location
-    , errorCells : Set.Set Location
+    , cells : DenseCells
     }
 
 
-type alias SparseModelInput =
+type alias DenseCells =
+    List (List Cell)
+
+
+type alias SparseGridInput =
     { width : Int
     , height : Int
     , cells : List ( Location, CellColor )
@@ -75,57 +81,59 @@ white =
     Just "white"
 
 
-sparseFromInput : SparseModelInput -> SparseModel
-sparseFromInput cells =
+initialModel : SparseGridInput -> Model
+initialModel cells =
     -- assumes cells are legal positions
     let
         newCells =
-            List.map (\( loc, clr ) -> ( loc, { color = clr, locked = True } )) cells.cells
+            Dict.fromList <|
+                List.map (\( loc, clr ) -> ( loc, { color = clr, locked = True } )) cells.cells
+
+        grid : SparseGrid
+        grid =
+            { width = cells.width
+            , height = cells.height
+            , cells = newCells
+            }
     in
-    { width = cells.width
-    , height = cells.height
-    , cells = Dict.fromList newCells
+    { grid = grid
     , highlightedCell = Nothing
     , connectedCells = Set.empty
     , errorCells = Set.empty
     }
 
 
-sparseFromDense : DenseModel -> SparseModel
+sparseFromDense : DenseGrid -> SparseGrid
 sparseFromDense dense =
     let
-        foldRow : Int -> List Cell -> Dict.Dict Location Cell
-        foldRow rowIndex rowCells =
+        foldRow : Int -> List Cell -> SparseCells
+        foldRow r cells =
             let
                 singletons =
-                    List.indexedMap (\columnIndex cell -> Dict.singleton ( rowIndex, columnIndex ) cell) rowCells
+                    List.indexedMap (\c cell -> Dict.singleton ( r, c ) cell) cells
             in
             List.foldr Dict.union Dict.empty singletons
 
-        newCells : Dict.Dict Location Cell
+        newCells : SparseCells
         newCells =
             List.foldr Dict.union Dict.empty <| List.indexedMap foldRow dense.cells
     in
-    { cells = newCells
-    , width = dense.width
+    { width = dense.width
     , height = dense.height
-    , highlightedCell = dense.highlightedCell
-    , connectedCells = dense.connectedCells
-    , errorCells = dense.errorCells
+    , cells = newCells
     }
 
 
-denseFromSparse : SparseModel -> DenseModel
+denseFromSparse : SparseGrid -> DenseGrid
 denseFromSparse sparse =
     let
-        dense : DenseModel
+        dense : DenseGrid
         dense =
             { width = sparse.width
             , height = sparse.height
-            , cells = List.repeat sparse.height (List.repeat sparse.width { color = unassigned, locked = False })
-            , highlightedCell = sparse.highlightedCell
-            , connectedCells = sparse.connectedCells
-            , errorCells = sparse.errorCells
+            , cells =
+                List.repeat sparse.height
+                    (List.repeat sparse.width { color = unassigned, locked = False })
             }
 
         updateRowFromSparse : Int -> List Cell -> List Cell
@@ -144,17 +152,14 @@ denseFromSparse sparse =
     { width = sparse.width
     , height = sparse.height
     , cells = List.indexedMap updateRowFromSparse dense.cells
-    , highlightedCell = dense.highlightedCell
-    , connectedCells = dense.connectedCells
-    , errorCells = dense.errorCells
     }
 
 
-updateGrid : Location -> CellColor -> SparseModel -> SparseModel
-updateGrid loc clr sparse =
+updateCellColor : Location -> CellColor -> Model -> Model
+updateCellColor loc clr sparse =
     let
         newCell =
-            case Dict.get loc sparse.cells of
+            case Dict.get loc sparse.grid.cells of
                 Nothing ->
                     { color = clr, locked = False }
 
@@ -167,12 +172,21 @@ updateGrid loc clr sparse =
 
                     else
                         { oldCell | color = clr }
+
+        newCells =
+            Dict.insert loc newCell sparse.grid.cells
+
+        newGrid =
+            { width = sparse.grid.width
+            , height = sparse.grid.height
+            , cells = newCells
+            }
     in
-    { sparse | cells = Dict.insert loc newCell sparse.cells }
+    { sparse | grid = newGrid }
 
 
-updateHighlightedCell : SparseModel -> Maybe Location -> SparseModel
-updateHighlightedCell sparse mloc =
+highlightedCells : Model -> Maybe Location -> Model
+highlightedCells sparse mloc =
     let
         connectedCellsPlus : Set.Set Location
         connectedCellsPlus =
@@ -196,7 +210,7 @@ updateHighlightedCell sparse mloc =
                 Just loc ->
                     let
                         mCell =
-                            Dict.get loc sparse.cells
+                            Dict.get loc sparse.grid.cells
 
                         clr =
                             Maybe.map (\c2 -> c2.color) mCell |> Maybe.withDefault unassigned
@@ -205,7 +219,7 @@ updateHighlightedCell sparse mloc =
                         Set.empty
 
                     else
-                        getConnectedCells (matchColor clr) sparse.cells loc
+                        getConnectedCells (matchColor clr) sparse.grid.cells loc
 
         errorCells : Set.Set Location
         errorCells =
@@ -218,7 +232,7 @@ updateHighlightedCell sparse mloc =
                         Just loc ->
                             let
                                 mCell =
-                                    Dict.get loc sparse.cells
+                                    Dict.get loc sparse.grid.cells
 
                                 clr =
                                     Maybe.map (\c2 -> c2.color) mCell |> Maybe.withDefault unassigned
@@ -230,7 +244,7 @@ updateHighlightedCell sparse mloc =
                                 let
                                     connectedComplements : List (Set.Set Location)
                                     connectedComplements =
-                                        getConnectedComplements connectedCellsPlus sparse
+                                        getConnectedComplements connectedCellsPlus sparse.grid
                                 in
                                 List.length connectedComplements > 1
 
@@ -255,9 +269,9 @@ updateHighlightedCell sparse mloc =
     }
 
 
-getErrorCells : SparseModel -> Location -> Set.Set Location
+getErrorCells : Model -> Location -> Set.Set Location
 getErrorCells sparse loc =
-    case Dict.get loc sparse.cells of
+    case Dict.get loc sparse.grid.cells of
         Nothing ->
             Set.empty
 
@@ -265,12 +279,12 @@ getErrorCells sparse loc =
             getErrorCells2 sparse loc cell
 
 
-getErrorCells2 : SparseModel -> Location -> Cell -> Set.Set Location
+getErrorCells2 : Model -> Location -> Cell -> Set.Set Location
 getErrorCells2 sparse loc cell =
     let
         sameColor : Location -> Bool
         sameColor loc2 =
-            case Dict.get loc2 sparse.cells of
+            case Dict.get loc2 sparse.grid.cells of
                 Nothing ->
                     False
 
@@ -322,7 +336,7 @@ matchUnassigned _ mCell =
             cell.color == unassigned
 
 
-getConnectedCells : (Maybe Cell -> Bool) -> Dict.Dict Location Cell -> Location -> Set.Set Location
+getConnectedCells : (Maybe Cell -> Bool) -> SparseCells -> Location -> Set.Set Location
 getConnectedCells match cells loc =
     let
         mCell =
@@ -335,7 +349,7 @@ getConnectedCells match cells loc =
         Set.empty
 
 
-getConnCells2 : (Maybe Cell -> Bool) -> Dict.Dict Location Cell -> Location -> Set.Set Location
+getConnCells2 : (Maybe Cell -> Bool) -> SparseCells -> Location -> Set.Set Location
 getConnCells2 match cells loc =
     let
         sameColorCells =
@@ -344,13 +358,13 @@ getConnCells2 match cells loc =
     getConnCells3 sameColorCells (Set.singleton loc) Set.empty
 
 
-getConnCells3 : Dict.Dict Location Cell -> Set.Set Location -> Set.Set Location -> Set.Set Location
+getConnCells3 : SparseCells -> Set.Set Location -> Set.Set Location -> Set.Set Location
 getConnCells3 cells seeds connCells =
     let
         neighbors ( r, c ) =
             [ ( r - 1, c ), ( r + 1, c ), ( r, c - 1 ), ( r, c + 1 ) ]
 
-        inGrid : Location -> Dict.Dict Location Cell -> Bool
+        inGrid : Location -> SparseCells -> Bool
         inGrid l d =
             case Dict.get l d of
                 Nothing ->
@@ -381,7 +395,7 @@ getConnCells3 cells seeds connCells =
         getConnCells3 cells newSeeds newConnCells
 
 
-complementFromSparse : SparseModel -> CellColor -> SparseModel
+complementFromSparse : SparseGrid -> CellColor -> SparseGrid
 complementFromSparse sparse clr =
     let
         d =
@@ -396,7 +410,7 @@ complementFromSparse sparse clr =
     { sparse | cells = newCells }
 
 
-getConnectedComplements : Set.Set Location -> SparseModel -> List (Set.Set Location)
+getConnectedComplements : Set.Set Location -> SparseGrid -> List (Set.Set Location)
 getConnectedComplements connCells sparse =
     -- TODO try to avoid calling with empty connCells
     if Set.isEmpty connCells then
@@ -412,20 +426,24 @@ getConnectedComplements connCells sparse =
             connClr =
                 Dict.get connLoc sparse.cells |> Maybe.map (\c -> c.color) |> Maybe.withDefault black
 
-            -- Complement the entire sparse model. This means we have to create a dense model then
+            -- Complement the entire sparse grid. This means we have to create a dense grid then
             -- convert back to sparse first.
             compSparse =
                 complementFromSparse sparse connClr
         in
-        getConnectedComplements2 compSparse.cells []
+        getConnectedComplements2 compSparse []
 
 
 
 -- sparse is already the complement so we are really finding all the connected cell groups within it
 
 
-getConnectedComplements2 : Dict.Dict Location Cell -> List (Set.Set Location) -> List (Set.Set Location)
-getConnectedComplements2 cells acc =
+getConnectedComplements2 : SparseGrid -> List (Set.Set Location) -> List (Set.Set Location)
+getConnectedComplements2 sparse acc =
+    let
+        cells =
+            sparse.cells
+    in
     if Dict.isEmpty cells then
         acc
 
@@ -433,23 +451,10 @@ getConnectedComplements2 cells acc =
         let
             -- cells cannot be empty, so default is irrelevant
             loc =
-                x4
-
-            x1 : List ( Location, Cell )
-            x1 =
                 Dict.toList cells
-
-            x2 : Maybe ( Location, Cell )
-            x2 =
-                List.head x1
-
-            x3 : Maybe Location
-            x3 =
-                Maybe.map (\( k, _ ) -> k) x2
-
-            x4 : Location
-            x4 =
-                Maybe.withDefault ( 0, 0 ) x3
+                    |> List.head
+                    |> Maybe.map (\( k, _ ) -> k)
+                    |> Maybe.withDefault ( 0, 0 )
 
             connCells =
                 let
@@ -467,29 +472,34 @@ getConnectedComplements2 cells acc =
 
             newCells =
                 Dict.filter (\k _ -> not (Set.member k connCells)) cells
+
+            newSparse =
+                { sparse | cells = newCells }
         in
-        getConnectedComplements2 newCells newAcc
+        getConnectedComplements2 newSparse newAcc
 
 
 
 ---- VIEW ----
 
 
-view : Float -> Float -> SparseModel -> Element Msg
-view viewportWidth viewportHeight sparse =
+view : Float -> Float -> Model -> Element Msg
+view viewportWidth viewportHeight model =
     let
-        dense =
-            denseFromSparse sparse
+        width =
+            model.grid.width
 
-        cellSizeFromViewport : Float -> Float -> Int -> Int -> Int
-        cellSizeFromViewport width height gridWidth gridHeight =
-            min (width / toFloat gridWidth) (height / toFloat gridHeight)
-                |> (\x -> x * 0.9)
-                |> round
+        height =
+            model.grid.height
 
         cellSize : Int
         cellSize =
-            cellSizeFromViewport viewportWidth viewportHeight dense.width dense.height
+            min (viewportWidth / toFloat width) (viewportHeight / toFloat height)
+                |> (\x -> x * 0.9)
+                |> round
+
+        dense =
+            denseFromSparse model.grid
     in
     column
         [ centerX
@@ -502,11 +512,11 @@ view viewportWidth viewportHeight sparse =
         List.indexedMap
             (\r rw ->
                 rowView r
-                    dense.width
+                    width
                     cellSize
-                    dense.highlightedCell
-                    dense.connectedCells
-                    dense.errorCells
+                    model.highlightedCell
+                    model.connectedCells
+                    model.errorCells
                     rw
             )
             dense.cells
