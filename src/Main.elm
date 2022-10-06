@@ -29,6 +29,11 @@ type alias Model =
 
 initialCells : Grid.SparseGridInput
 initialCells =
+    game1
+
+
+game1 : Grid.SparseGridInput
+game1 =
     { width = 10
     , height = 10
     , cells =
@@ -50,6 +55,68 @@ initialCells =
         , ( ( 8, 6 ), black )
         , ( ( 9, 0 ), white )
         , ( ( 9, 1 ), white )
+        ]
+    }
+
+
+game2 : Grid.SparseGridInput
+game2 =
+    { width = 10
+    , height = 10
+    , cells =
+        [ ( ( 1, 8 ), white )
+        , ( ( 2, 6 ), white )
+        , ( ( 2, 7 ), white )
+        , ( ( 3, 2 ), white )
+        , ( ( 3, 4 ), white )
+        , ( ( 4, 1 ), white )
+        , ( ( 4, 2 ), white )
+        , ( ( 4, 6 ), white )
+        , ( ( 4, 8 ), white )
+        , ( ( 5, 3 ), white )
+        , ( ( 6, 5 ), white )
+        , ( ( 7, 3 ), white )
+        , ( ( 8, 2 ), white )
+        , ( ( 8, 4 ), white )
+        , ( ( 8, 9 ), white )
+        , ( ( 9, 8 ), white )
+        ]
+    }
+
+
+game3 : Grid.SparseGridInput
+game3 =
+    { width = 10
+    , height = 10
+    , cells =
+        [ ( ( 1, 4 ), white )
+        , ( ( 1, 6 ), white )
+        , ( ( 1, 7 ), white )
+        , ( ( 1, 8 ), black )
+        , ( ( 2, 2 ), white )
+        , ( ( 2, 4 ), black )
+        , ( ( 2, 5 ), white )
+        , ( ( 2, 8 ), black )
+        , ( ( 3, 2 ), black )
+        , ( ( 3, 5 ), white )
+        , ( ( 3, 8 ), white )
+        , ( ( 4, 2 ), black )
+        , ( ( 4, 3 ), white )
+        , ( ( 4, 4 ), white )
+        , ( ( 4, 6 ), black )
+        , ( ( 4, 7 ), white )
+        , ( ( 5, 2 ), black )
+        , ( ( 5, 7 ), black )
+        , ( ( 6, 1 ), white )
+        , ( ( 6, 3 ), black )
+        , ( ( 6, 5 ), black )
+        , ( ( 7, 1 ), black )
+        , ( ( 7, 5 ), white )
+        , ( ( 7, 8 ), white )
+        , ( ( 8, 1 ), white )
+        , ( ( 8, 2 ), white )
+        , ( ( 8, 3 ), white )
+        , ( ( 8, 5 ), white )
         ]
     }
 
