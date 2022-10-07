@@ -316,7 +316,11 @@ getCheckerboardCells sparse loc cell =
 
         notAllSameColor : List Location -> Bool
         notAllSameColor ls =
-            not (allSameColor ls)
+            List.map (\l -> Dict.get l sparse.grid.cells) ls
+                |> List.map (Maybe.map (\c -> c.color))
+                |> List.map (Maybe.withDefault unassigned)
+                |> Set.fromList
+                |> (\s -> Set.size s == 2 && not (Set.member "unassigned" s))
 
         isGroupError : ( List Location, List Location ) -> Bool
         isGroupError ( d1, d2 ) =
