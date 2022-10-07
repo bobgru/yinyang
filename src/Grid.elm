@@ -95,6 +95,8 @@ initialModel cells =
             , height = cells.height
             , cells = newCells
             }
+                |> denseFromSparse
+                |> sparseFromDense
     in
     { grid = grid
     , highlightedCell = Nothing
@@ -268,7 +270,11 @@ getErrorCells sparse loc =
             Set.empty
 
         Just cell ->
-            getErrorCells2 sparse loc cell
+            if cell.color == unassigned then
+                Set.empty
+
+            else
+                getErrorCells2 sparse loc cell
 
 
 getErrorCells2 : Model -> Location -> Cell -> Set.Set Location
