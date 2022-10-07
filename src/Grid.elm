@@ -2,7 +2,6 @@ module Grid exposing (..)
 
 import Dict
 import Element exposing (..)
-import Element.Background as Background
 import Element.Border as Border
 import Element.Events exposing (onClick, onMouseLeave)
 import Html.Events exposing (custom, onMouseOver)
@@ -63,28 +62,29 @@ type alias SparseGridInput =
 
 
 type alias CellColor =
-    Maybe String
+    String
 
 
 unassigned : CellColor
 unassigned =
-    Nothing
+    "unassigned"
 
 
 black : CellColor
 black =
-    Just "black"
+    "black"
 
 
 white : CellColor
 white =
-    Just "white"
+    "white"
 
 
 initialModel : SparseGridInput -> Model
 initialModel cells =
     -- assumes cells are legal positions
     let
+        newCells : SparseCells
         newCells =
             Dict.fromList <|
                 List.map (\( loc, clr ) -> ( loc, { color = clr, locked = True } )) cells.cells
@@ -218,49 +218,138 @@ highlightedCells sparse mloc =
         errorCells : Set.Set Location
         errorCells =
             let
+                errorInComplement : Bool
                 errorInComplement =
-                    case mloc of
-                        Nothing ->
-                            False
+                    checkErrorInComplement sparse mloc connectedCellsPlus
 
-                        Just loc ->
-                            let
-                                mCell =
-                                    Dict.get loc sparse.grid.cells
-
-                                clr =
-                                    Maybe.map (\c2 -> c2.color) mCell |> Maybe.withDefault unassigned
-                            in
-                            if clr == unassigned then
-                                False
-
-                            else
-                                let
-                                    connectedComplements : List (Set.Set Location)
-                                    connectedComplements =
-                                        getConnectedComplements connectedCellsPlus sparse.grid
-                                in
-                                List.length connectedComplements > 1
-
+                twoByTwoErrors : Set.Set Location
                 twoByTwoErrors =
-                    case mloc of
-                        Nothing ->
-                            Set.empty
+                    getTwoByTwoErrors sparse mloc
 
-                        Just loc ->
-                            getErrorCells sparse loc
+                checkerboardErrors : Set.Set Location
+                checkerboardErrors =
+                    getCheckerboardErrors sparse
             in
             if errorInComplement then
-                Set.union twoByTwoErrors connectedCellsPlus
+                List.foldr Set.union Set.empty [ twoByTwoErrors, checkerboardErrors, connectedCellsPlus ]
 
             else
-                twoByTwoErrors
+                List.foldr Set.union Set.empty [ twoByTwoErrors, checkerboardErrors ]
     in
     { sparse
         | highlightedCell = mloc
         , connectedCells = connectedCells
         , errorCells = errorCells
     }
+
+
+checkErrorInComplement : Model -> Maybe Location -> Set.Set Location -> Bool
+checkErrorInComplement sparse mloc connectedCellsPlus =
+    case mloc of
+        Nothing ->
+            False
+
+        Just loc ->
+            let
+                mCell =
+                    Dict.get loc sparse.grid.cells
+
+                clr =
+                    Maybe.map (\c2 -> c2.color) mCell |> Maybe.withDefault unassigned
+            in
+            if clr == unassigned then
+                False
+
+            else
+                let
+                    connectedComplements : List (Set.Set Location)
+                    connectedComplements =
+                        getConnectedComplements connectedCellsPlus sparse.grid
+                in
+                List.length connectedComplements > 1
+
+
+getTwoByTwoErrors : Model -> Maybe Location -> Set.Set Location
+getTwoByTwoErrors sparse mloc =
+    case mloc of
+        Nothing ->
+            Set.empty
+
+        Just loc ->
+            getErrorCells sparse loc
+
+
+getCheckerboardErrors : Model -> Set.Set Location
+getCheckerboardErrors sparse =
+    let
+        isPartOfCheckerboard : Location -> Cell -> Bool
+        isPartOfCheckerboard loc cell =
+            getCheckerboardCells sparse loc cell
+                |> Set.isEmpty
+                |> not
+    in
+    Dict.filter isPartOfCheckerboard sparse.grid.cells
+        |> Dict.toList
+        |> List.map Tuple.first
+        |> Set.fromList
+
+
+getCheckerboardCells : Model -> Location -> Cell -> Set.Set Location
+getCheckerboardCells sparse loc cell =
+    let
+        allSameColor : List Location -> Bool
+        allSameColor ls =
+            List.map (\l -> Dict.get l sparse.grid.cells) ls
+                |> List.map (Maybe.map (\c -> c.color))
+                |> List.map (Maybe.withDefault unassigned)
+                |> Set.fromList
+                |> (\s -> Set.size s == 1 && arbitraryElementIsAssigned s)
+
+        arbitraryElementIsAssigned : Set.Set CellColor -> Bool
+        arbitraryElementIsAssigned s =
+            case Set.toList s |> List.head of
+                Nothing ->
+                    False
+
+                Just clr ->
+                    clr /= unassigned
+
+        notAllSameColor : List Location -> Bool
+        notAllSameColor ls =
+            not (allSameColor ls)
+
+        isGroupError : ( List Location, List Location ) -> Bool
+        isGroupError ( d1, d2 ) =
+            allSameColor d1
+                && allSameColor d2
+                && notAllSameColor (List.concat [ d1, d2 ])
+
+        neighborDiagonals : Location -> List ( List Location, List Location )
+        neighborDiagonals ( rr, cc ) =
+            let
+                fromLowerRight ( r, c ) =
+                    ( [ ( r - 1, c - 1 ), ( r, c ) ], [ ( r - 1, c ), ( r, c - 1 ) ] )
+
+                fromLowerLeft ( r, c ) =
+                    ( [ ( r - 1, c ), ( r, c + 1 ) ], [ ( r - 1, c + 1 ), ( r, c ) ] )
+
+                fromUpperRight ( r, c ) =
+                    ( [ ( r, c - 1 ), ( r + 1, c ) ], [ ( r, c ), ( r + 1, c - 1 ) ] )
+
+                fromUpperLeft ( r, c ) =
+                    ( [ ( r, c ), ( r + 1, c + 1 ) ], [ ( r, c + 1 ), ( r + 1, c ) ] )
+            in
+            [ fromLowerRight ( rr, cc )
+            , fromLowerLeft ( rr, cc )
+            , fromUpperRight ( rr, cc )
+            , fromUpperLeft ( rr, cc )
+            ]
+    in
+    Set.fromList <|
+        List.concat <|
+            List.map (\( x, y ) -> List.concat [ x, y ]) <|
+                List.filter isGroupError <|
+                    neighborDiagonals loc
 
 
 getErrorCells : Model -> Location -> Set.Set Location
@@ -626,12 +715,11 @@ dot loc cellSize mHighlightedCell connectedCells errorCells cell =
         Element.html <|
             S.svg [ SA.height side ]
                 (square cell.locked
-                    :: (case cell.color of
-                            Nothing ->
-                                []
+                    :: (if cell.color == "unassigned" then
+                            []
 
-                            Just fillClr ->
-                                [ circle fillClr ]
+                        else
+                            [ circle cell.color ]
                        )
                 )
 
