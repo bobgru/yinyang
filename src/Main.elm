@@ -29,7 +29,7 @@ type alias Model =
 
 initialCells : Grid.SparseGridInput
 initialCells =
-    game4
+    game5
 
 
 game1 : Grid.SparseGridInput
@@ -154,6 +154,41 @@ game4 =
         , ( ( 8, 4 ), black )
         , ( ( 8, 8 ), black )
         , ( ( 9, 3 ), white )
+        ]
+    }
+
+
+game5 : Grid.SparseGridInput
+game5 =
+    { width = 8
+    , height = 8
+    , cells =
+        [ ( ( 0, 6 ), black )
+        , ( ( 0, 7 ), white )
+        , ( ( 1, 1 ), white )
+        , ( ( 1, 2 ), white )
+        , ( ( 1, 4 ), black )
+        , ( ( 1, 6 ), black )
+        , ( ( 2, 6 ), black )
+        , ( ( 2, 7 ), white )
+        , ( ( 3, 1 ), white )
+        , ( ( 3, 3 ), black )
+        , ( ( 3, 4 ), white )
+        , ( ( 3, 5 ), black )
+        , ( ( 4, 0 ), black )
+        , ( ( 4, 1 ), white )
+        , ( ( 4, 2 ), white )
+        , ( ( 4, 6 ), black )
+        , ( ( 4, 6 ), black )
+        , ( ( 5, 0 ), black )
+        , ( ( 5, 4 ), black )
+        , ( ( 5, 5 ), white )
+        , ( ( 6, 1 ), white )
+        , ( ( 6, 2 ), black )
+        , ( ( 6, 4 ), black )
+        , ( ( 6, 6 ), black )
+        , ( ( 7, 4 ), black )
+        , ( ( 7, 7 ), black )
         ]
     }
 
