@@ -9,7 +9,7 @@ with the following rules:
 
 I wanted to practice solving such puzzles to get better at them, but couldn't find an app
 or collection either online or book, so decided to write one. Another motive
-was become acquainted with `elm-ui`, and to practice Elm programming in general.
+was to become acquainted with `elm-ui`, and to practice Elm programming in general.
 
 As of now, there are sample games I found on `puzzling.stackexchange.com` to choose
 from, where the game is selected at compile-time by changing the value of `initialCells` in
@@ -24,13 +24,13 @@ strain from constantly scanning for them:
 to be orthogonally connected.
 * A checkerboard pattern, i.e. crossed black and white diagonals, because it leads to the previous condition.
 
-There is enough functionality to practice the four samples, but there are features I would like to add:
+There is enough functionality to practice the samples, but there are features I would like to add:
 * Undo/redo
 * Snapshot push/pop
 * Highlight a winning game
 * Select the sample from a menu
 * Configure a new game interactively
-* Generate new games randomly
+* Generate a new game randomly
 * Programmatically solve a game
 * Provide a hint, preferably according to logical deduction
 * Record elapsed time to solve
