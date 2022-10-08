@@ -8,7 +8,7 @@ with the following rules:
 * No 2x2 region of cells consists of a single color.
 
 I wanted to practice solving such puzzles to get better at them, but couldn't find an app
-or collection either online or book, so decided to one.  Another motive
+or collection either online or book, so decided to write one. Another motive
 was become acquainted with `elm-ui`, and to practice Elm programming in general.
 
 As of now, there are sample games I found on `puzzling.stackexchange.com` to choose
