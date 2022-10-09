@@ -26,8 +26,14 @@ to be orthogonally connected.
 
 A winning game is highlighted in orange.
 
+Pressing "u" undoes the last move if there was one, moving it to a "redo" list. Pressing "r" replays the
+next move in the redo list. A mouseclick adds a move to the undo list and clears the redo list.
+
+Pressing "s" records a snapshot of the current board and undo list. Pressing "p" pops a snapshot off the stack
+and restores the board and undo list to the previous state.
+
 There is enough functionality to practice the samples, but there are features I would like to add:
-* Snapshot push/pop
+* Add visual effects to help indicate what has changed
 * Select the sample from a menu
 * Configure a new game interactively
 * Generate a new game randomly

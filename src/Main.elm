@@ -19,7 +19,7 @@ import Task exposing (..)
 
 type alias Model =
     { grid : Grid.Model
-    , snapshots : Stack Grid.Model
+    , snapshots : List ( Grid.Model, List ( Location, Grid.CellColor ) )
     , initialCells : Grid.SparseGridInput
     , cellHoveredOver : Maybe Location
     , viewportWidth : Float
@@ -199,7 +199,7 @@ game5 =
 initialModel : Model
 initialModel =
     { grid = Grid.initialModel initialCells
-    , snapshots = Stack.initialise
+    , snapshots = []
     , initialCells = initialCells
     , cellHoveredOver = Nothing
     , viewportWidth = 1.0 -- placeholder
@@ -232,22 +232,18 @@ update msg model =
             updateViewPort model viewportResult
 
         CharacterKeyPressed c ->
-            case ( c, model.undoStack, model.redoStack ) of
-                ( 'u', ( loc, clr ) :: newUndoStack, _ ) ->
-                    let
-                        newModel =
-                            { model | undoStack = newUndoStack, redoStack = ( loc, clr ) :: model.redoStack }
-                    in
-                    updateCellColor newModel loc clr True
-                        |> (\( mdl, _ ) -> highlightCells mdl (Just loc))
+            case c of
+                'u' ->
+                    handleUndo model
 
-                ( 'r', _, ( loc, clr ) :: newRedoStack ) ->
-                    let
-                        newModel =
-                            { model | redoStack = newRedoStack, undoStack = ( loc, clr ) :: model.undoStack }
-                    in
-                    updateCellColor newModel loc clr True
-                        |> (\( mdl, _ ) -> highlightCells mdl (Just loc))
+                'r' ->
+                    handleRedo model
+
+                's' ->
+                    handlePushSnapshot model
+
+                'p' ->
+                    handlePopSnapshot model
 
                 _ ->
                     ( model, Cmd.none )
@@ -265,6 +261,55 @@ update msg model =
 
         CellHighlighted mloc ->
             highlightCells model mloc
+
+
+handleUndo model =
+    case ( model.undoStack, model.redoStack ) of
+        ( ( loc, clr ) :: newUndoStack, _ ) ->
+            let
+                newModel =
+                    { model | undoStack = newUndoStack, redoStack = ( loc, clr ) :: model.redoStack }
+            in
+            updateCellColor newModel loc clr True
+                |> (\( mdl, _ ) -> highlightCells mdl (Just loc))
+
+        _ ->
+            ( model, Cmd.none )
+
+
+handleRedo model =
+    case ( model.undoStack, model.redoStack ) of
+        ( _, ( loc, clr ) :: newRedoStack ) ->
+            let
+                newModel =
+                    { model | redoStack = newRedoStack, undoStack = ( loc, clr ) :: model.undoStack }
+            in
+            updateCellColor newModel loc clr True
+                |> (\( mdl, _ ) -> highlightCells mdl (Just loc))
+
+        _ ->
+            ( model, Cmd.none )
+
+
+handlePushSnapshot model =
+    let
+        newModel =
+            { model | snapshots = ( model.grid, model.undoStack ) :: model.snapshots }
+    in
+    ( newModel, Cmd.none )
+
+
+handlePopSnapshot model =
+    case model.snapshots of
+        ( newGrid, newUndoStack ) :: newSnapshots ->
+            let
+                newModel =
+                    { model | grid = newGrid, undoStack = newUndoStack, redoStack = [] }
+            in
+            ( newModel, Cmd.none )
+
+        _ ->
+            ( model, Cmd.none )
 
 
 refreshViewport : Cmd Msg
