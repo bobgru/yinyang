@@ -281,13 +281,25 @@ checkWin sparse =
         connectedComplements =
             getConnectedComplements connectedCellsPlus sparse.grid
 
+        winningCells =
+            if List.length connectedComplements == 1 then
+                Set.union connectedCellsPlus
+                    (connectedComplements |> List.head |> Maybe.withDefault Set.empty)
+
+            else
+                Set.empty
+
+        allCellsPlayed =
+            Dict.filter (\k v -> v.color /= unassigned) sparse.grid.cells
+                |> Dict.toList
+                |> List.length
+                |> (\l -> l == sparse.grid.width * sparse.grid.height)
+
         isWin =
-            List.length connectedComplements
-                == 1
-                && (Set.union connectedCellsPlus
-                        (connectedComplements |> List.head |> Maybe.withDefault Set.empty)
-                        == (sparse.grid.cells |> Dict.keys |> Set.fromList)
-                   )
+            allCellsPlayed
+                && Set.size winningCells
+                == sparse.grid.width
+                * sparse.grid.height
     in
     isWin
 
