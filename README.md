@@ -24,10 +24,11 @@ strain from constantly scanning for them:
 to be orthogonally connected.
 * A checkerboard pattern, i.e. crossed black and white diagonals, because it leads to the previous condition.
 
+A winning game is highlighted in orange.
+
 There is enough functionality to practice the samples, but there are features I would like to add:
 * Undo/redo
 * Snapshot push/pop
-* Highlight a winning game
 * Select the sample from a menu
 * Configure a new game interactively
 * Generate a new game randomly

@@ -23,6 +23,7 @@ type alias Model =
     , highlightedCell : Maybe Location
     , connectedCells : Set.Set Location
     , errorCells : Set.Set Location
+    , isWin : Bool
     }
 
 
@@ -102,6 +103,7 @@ initialModel cells =
     , highlightedCell = Nothing
     , connectedCells = Set.empty
     , errorCells = Set.empty
+    , isWin = False
     }
 
 
@@ -175,8 +177,11 @@ updateCellColor loc clr sparse =
             , height = sparse.grid.height
             , cells = newCells
             }
+
+        newModel =
+            { sparse | grid = newGrid }
     in
-    { sparse | grid = newGrid }
+    { newModel | isWin = checkWin newModel }
 
 
 highlightedCells : Model -> Maybe Location -> Model
@@ -241,6 +246,50 @@ highlightedCells sparse mloc =
         , connectedCells = connectedCells
         , errorCells = errorCells
     }
+
+
+checkWin : Model -> Bool
+checkWin sparse =
+    let
+        mLocCell =
+            Dict.toList sparse.grid.cells |> List.head
+
+        connectedCells =
+            case mLocCell of
+                Nothing ->
+                    Set.empty
+
+                Just ( loc, cell ) ->
+                    getConnectedCells (matchColor cell.color) sparse.grid.cells loc
+
+        connectedCellsPlus =
+            if Set.isEmpty connectedCells then
+                case mLocCell of
+                    Nothing ->
+                        Set.empty
+
+                    Just ( loc, cell ) ->
+                        if cell.color == unassigned then
+                            Set.empty
+
+                        else
+                            Set.singleton loc
+
+            else
+                connectedCells
+
+        connectedComplements =
+            getConnectedComplements connectedCellsPlus sparse.grid
+
+        isWin =
+            List.length connectedComplements
+                == 1
+                && (Set.union connectedCellsPlus
+                        (connectedComplements |> List.head |> Maybe.withDefault Set.empty)
+                        == (sparse.grid.cells |> Dict.keys |> Set.fromList)
+                   )
+    in
+    isWin
 
 
 checkErrorInComplement : Model -> Maybe Location -> Set.Set Location -> Bool
@@ -608,13 +657,14 @@ view viewportWidth viewportHeight model =
                     model.highlightedCell
                     model.connectedCells
                     model.errorCells
+                    model.isWin
                     rw
             )
             dense.cells
 
 
-rowView : Int -> Int -> Int -> Maybe Location -> Set.Set Location -> Set.Set Location -> List Cell -> Element Msg
-rowView rowIndex gridWidth cellSize mHighlightedCell connectedCells errorCells rowCells =
+rowView : Int -> Int -> Int -> Maybe Location -> Set.Set Location -> Set.Set Location -> Bool -> List Cell -> Element Msg
+rowView rowIndex gridWidth cellSize mHighlightedCell connectedCells errorCells isWin rowCells =
     row
         [ centerX
         , centerY
@@ -629,13 +679,14 @@ rowView rowIndex gridWidth cellSize mHighlightedCell connectedCells errorCells r
                     mHighlightedCell
                     connectedCells
                     errorCells
+                    isWin
                     cell
             )
             rowCells
 
 
-dot : Location -> Int -> Maybe Location -> Set.Set Location -> Set.Set Location -> Cell -> Element Msg
-dot loc cellSize mHighlightedCell connectedCells errorCells cell =
+dot : Location -> Int -> Maybe Location -> Set.Set Location -> Set.Set Location -> Bool -> Cell -> Element Msg
+dot loc cellSize mHighlightedCell connectedCells errorCells isWin cell =
     let
         cx =
             String.fromInt <| round (toFloat cellSize / 2)
@@ -674,7 +725,10 @@ dot loc cellSize mHighlightedCell connectedCells errorCells cell =
                         "lightgray"
 
                 fillColor =
-                    if isError then
+                    if isWin then
+                        "orange"
+
+                    else if isError then
                         "red"
 
                     else if inConnectedSet then

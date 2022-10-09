@@ -265,8 +265,11 @@ updateCellColor model loc clr =
     let
         newModel =
             { model | grid = Grid.updateCellColor loc clr model.grid }
+
+        newModel2 =
+            { newModel | grid = Grid.highlightedCells newModel.grid (Just loc) }
     in
-    ( newModel, Cmd.none )
+    ( newModel2, Cmd.none )
 
 
 highlightCells : Model -> Maybe Location -> ( Model, Cmd Msg )
