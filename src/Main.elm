@@ -25,7 +25,8 @@ type alias Model =
     , viewportWidth : Float
     , viewportHeight : Float
     , error : Maybe String
-    , undoCmd : Maybe ( Location, Grid.CellColor )
+    , undoStack : List ( Location, Grid.CellColor )
+    , redoStack : List ( Location, Grid.CellColor )
     }
 
 
@@ -204,7 +205,8 @@ initialModel =
     , viewportWidth = 1.0 -- placeholder
     , viewportHeight = 1.0 -- placeholder
     , error = Nothing
-    , undoCmd = Nothing
+    , undoStack = []
+    , redoStack = []
     }
 
 
@@ -230,9 +232,21 @@ update msg model =
             updateViewPort model viewportResult
 
         CharacterKeyPressed c ->
-            case ( c, model.undoCmd ) of
-                ( 'u', Just ( loc, clr ) ) ->
-                    updateCellColor model loc clr
+            case ( c, model.undoStack, model.redoStack ) of
+                ( 'u', ( loc, clr ) :: newUndoStack, _ ) ->
+                    let
+                        newModel =
+                            { model | undoStack = newUndoStack, redoStack = ( loc, clr ) :: model.redoStack }
+                    in
+                    updateCellColor newModel loc clr True
+                        |> (\( mdl, _ ) -> highlightCells mdl (Just loc))
+
+                ( 'r', _, ( loc, clr ) :: newRedoStack ) ->
+                    let
+                        newModel =
+                            { model | redoStack = newRedoStack, undoStack = ( loc, clr ) :: model.undoStack }
+                    in
+                    updateCellColor newModel loc clr True
                         |> (\( mdl, _ ) -> highlightCells mdl (Just loc))
 
                 _ ->
@@ -242,11 +256,11 @@ update msg model =
             ( model, Cmd.none )
 
         CellLeftClicked loc ->
-            updateCellColor model loc Grid.black
+            updateCellColor model loc Grid.black False
                 |> (\( mdl, _ ) -> highlightCells mdl (Just loc))
 
         CellRightClicked loc ->
-            updateCellColor model loc Grid.white
+            updateCellColor model loc Grid.white False
                 |> (\( mdl, _ ) -> highlightCells mdl (Just loc))
 
         CellHighlighted mloc ->
@@ -275,13 +289,28 @@ updateViewPort model viewportResult =
             ( { model | error = Just "no viewport" }, Cmd.none )
 
 
-updateCellColor : Model -> Location -> Grid.CellColor -> ( Model, Cmd Msg )
-updateCellColor model loc clr =
+updateCellColor : Model -> Location -> Grid.CellColor -> Bool -> ( Model, Cmd Msg )
+updateCellColor model loc clr undoOrRedo =
     let
+        newUndoStack =
+            if undoOrRedo then
+                model.undoStack
+
+            else
+                ( loc, clr ) :: model.undoStack
+
+        newRedoStack =
+            if undoOrRedo then
+                model.redoStack
+
+            else
+                []
+
         newModel =
             { model
                 | grid = Grid.updateCellColor loc clr model.grid
-                , undoCmd = Just ( loc, clr )
+                , undoStack = newUndoStack
+                , redoStack = newRedoStack
             }
 
         newModel2 =
