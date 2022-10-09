@@ -29,7 +29,7 @@ type alias Model =
 
 initialCells : Grid.SparseGridInput
 initialCells =
-    game5
+    game4
 
 
 game1 : Grid.SparseGridInput
