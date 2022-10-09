@@ -6,6 +6,7 @@ import Browser.Events as E
 import Element exposing (..)
 import Grid as Grid exposing (black, unassigned, white)
 import Html exposing (Html)
+import Json.Decode as Decode
 import Location exposing (..)
 import Msg exposing (..)
 import Stack exposing (..)
@@ -24,12 +25,13 @@ type alias Model =
     , viewportWidth : Float
     , viewportHeight : Float
     , error : Maybe String
+    , undoCmd : Maybe ( Location, Grid.CellColor )
     }
 
 
 initialCells : Grid.SparseGridInput
 initialCells =
-    game4
+    game5
 
 
 game1 : Grid.SparseGridInput
@@ -202,6 +204,7 @@ initialModel =
     , viewportWidth = 1.0 -- placeholder
     , viewportHeight = 1.0 -- placeholder
     , error = Nothing
+    , undoCmd = Nothing
     }
 
 
@@ -225,6 +228,18 @@ update msg model =
 
         ViewPortChanged viewportResult ->
             updateViewPort model viewportResult
+
+        CharacterKeyPressed c ->
+            case ( c, model.undoCmd ) of
+                ( 'u', Just ( loc, clr ) ) ->
+                    updateCellColor model loc clr
+                        |> (\( mdl, _ ) -> highlightCells mdl (Just loc))
+
+                _ ->
+                    ( model, Cmd.none )
+
+        ControlKeyPressed keyValue ->
+            ( model, Cmd.none )
 
         CellLeftClicked loc ->
             updateCellColor model loc Grid.black
@@ -264,7 +279,10 @@ updateCellColor : Model -> Location -> Grid.CellColor -> ( Model, Cmd Msg )
 updateCellColor model loc clr =
     let
         newModel =
-            { model | grid = Grid.updateCellColor loc clr model.grid }
+            { model
+                | grid = Grid.updateCellColor loc clr model.grid
+                , undoCmd = Just ( loc, clr )
+            }
 
         newModel2 =
             { newModel | grid = Grid.highlightedCells newModel.grid (Just loc) }
@@ -297,7 +315,25 @@ view model =
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    E.onResize WindowSizeChanged
+    Sub.batch
+        [ E.onResize WindowSizeChanged
+        , E.onKeyPress keyDecoder
+        ]
+
+
+keyDecoder : Decode.Decoder Msg
+keyDecoder =
+    Decode.map toKey (Decode.field "key" Decode.string)
+
+
+toKey : String -> Msg
+toKey keyValue =
+    case String.uncons keyValue of
+        Just ( char, "" ) ->
+            CharacterKeyPressed char
+
+        _ ->
+            ControlKeyPressed keyValue
 
 
 
