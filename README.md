@@ -14,7 +14,7 @@ was to become acquainted with `elm-ui`, and to practice Elm programming in gener
 As of now, there are sample games I found on `puzzling.stackexchange.com` to choose
 from, where the game is selected at compile-time by changing the value of `initialCells` in
 `Main.elm`. Click left to play black. Click right to play white. Click again to remove. The
-target cell for a clck is highlighted yellow. Cells part of the original puzzle configuration
+target cell for a click is highlighted yellow. Cells part of the original puzzle configuration
 have a light green background. Orthogonally connected cells are highlighted in blue when you
 hover over any cell within the group. A 2x2 region of a single color is highlighted in red.
 
