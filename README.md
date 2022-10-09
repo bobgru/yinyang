@@ -27,7 +27,6 @@ to be orthogonally connected.
 A winning game is highlighted in orange.
 
 There is enough functionality to practice the samples, but there are features I would like to add:
-* Undo/redo
 * Snapshot push/pop
 * Select the sample from a menu
 * Configure a new game interactively
