@@ -251,57 +251,37 @@ highlightedCells sparse mloc =
 checkWin : Model -> Bool
 checkWin sparse =
     let
-        mLocCell =
-            Dict.toList sparse.grid.cells |> List.head
-
-        connectedCells =
-            case mLocCell of
-                Nothing ->
-                    Set.empty
-
-                Just ( loc, cell ) ->
-                    getConnectedCells (matchColor cell.color) sparse.grid.cells loc
-
-        connectedCellsPlus =
-            if Set.isEmpty connectedCells then
-                case mLocCell of
-                    Nothing ->
-                        Set.empty
-
-                    Just ( loc, cell ) ->
-                        if cell.color == unassigned then
-                            Set.empty
-
-                        else
-                            Set.singleton loc
-
-            else
-                connectedCells
-
-        connectedComplements =
-            getConnectedComplements connectedCellsPlus sparse.grid
-
-        winningCells =
-            if List.length connectedComplements == 1 then
-                Set.union connectedCellsPlus
-                    (connectedComplements |> List.head |> Maybe.withDefault Set.empty)
-
-            else
-                Set.empty
-
-        allCellsPlayed =
-            Dict.filter (\k v -> v.color /= unassigned) sparse.grid.cells
-                |> Dict.toList
-                |> List.length
-                |> (\l -> l == sparse.grid.width * sparse.grid.height)
-
-        isWin =
-            allCellsPlayed
-                && Set.size winningCells
-                == sparse.grid.width
-                * sparse.grid.height
+        blackCells =
+            Dict.filter (\_ cell -> matchBlack cell) sparse.grid.cells
     in
-    isWin
+    case Dict.toList blackCells |> List.head of
+        Nothing ->
+            False
+
+        Just ( locBlack, _ ) ->
+            let
+                whiteCells =
+                    Dict.filter (\_ cell -> matchWhite cell) sparse.grid.cells
+            in
+            case Dict.toList whiteCells |> List.head of
+                Nothing ->
+                    False
+
+                Just ( locWhite, _ ) ->
+                    let
+                        connectedBlackCells =
+                            getConnectedCells (matchColor black) blackCells locBlack
+                                |> Set.union (Set.singleton locBlack)
+
+                        connectedWhiteCells =
+                            getConnectedCells (matchColor white) whiteCells locWhite
+                                |> Set.union (Set.singleton locWhite)
+                    in
+                    -- TODO not checking for errors
+                    Set.size connectedBlackCells
+                        + Set.size connectedWhiteCells
+                        == sparse.grid.width
+                        * sparse.grid.height
 
 
 checkErrorInComplement : Model -> Maybe Location -> Set.Set Location -> Bool
@@ -478,14 +458,19 @@ matchOpposite clr mCell =
             cell.color /= clr
 
 
-matchUnassigned : CellColor -> Maybe Cell -> Bool
-matchUnassigned _ mCell =
-    case mCell of
-        Nothing ->
-            True
+matchWhite : Cell -> Bool
+matchWhite cell =
+    cell.color == white
 
-        Just cell ->
-            cell.color == unassigned
+
+matchBlack : Cell -> Bool
+matchBlack cell =
+    cell.color == black
+
+
+matchUnassigned : Cell -> Bool
+matchUnassigned cell =
+    cell.color == unassigned
 
 
 getConnectedCells : (Maybe Cell -> Bool) -> SparseCells -> Location -> Set.Set Location
@@ -516,18 +501,9 @@ getConnCells3 cells seeds connCells =
         neighbors ( r, c ) =
             [ ( r - 1, c ), ( r + 1, c ), ( r, c - 1 ), ( r, c + 1 ) ]
 
-        inGrid : Location -> SparseCells -> Bool
-        inGrid l d =
-            case Dict.get l d of
-                Nothing ->
-                    False
-
-                Just _ ->
-                    True
-
         isValid loc =
             not (Set.member loc connCells)
-                && inGrid loc cells
+                && Dict.member loc cells
 
         newSeeds =
             Set.filter isValid <|
@@ -596,39 +572,33 @@ getConnectedComplements2 sparse acc =
         cells =
             sparse.cells
     in
-    if Dict.isEmpty cells then
-        acc
+    case Dict.toList cells |> List.head of
+        Nothing ->
+            acc
 
-    else
-        let
-            -- cells cannot be empty, so default is irrelevant
-            loc =
-                Dict.toList cells
-                    |> List.head
-                    |> Maybe.map (\( k, _ ) -> k)
-                    |> Maybe.withDefault ( 0, 0 )
+        Just ( loc, _ ) ->
+            let
+                connCells =
+                    let
+                        connCells2 =
+                            getConnectedCells (\_ -> True) cells loc
+                    in
+                    if Set.isEmpty connCells2 then
+                        Set.singleton loc
 
-            connCells =
-                let
-                    connCells2 =
-                        getConnectedCells (\_ -> True) cells loc
-                in
-                if Set.isEmpty connCells2 then
-                    Set.singleton loc
+                    else
+                        connCells2
 
-                else
-                    connCells2
+                newAcc =
+                    connCells :: acc
 
-            newAcc =
-                connCells :: acc
+                newCells =
+                    Dict.filter (\k _ -> not (Set.member k connCells)) cells
 
-            newCells =
-                Dict.filter (\k _ -> not (Set.member k connCells)) cells
-
-            newSparse =
-                { sparse | cells = newCells }
-        in
-        getConnectedComplements2 newSparse newAcc
+                newSparse =
+                    { sparse | cells = newCells }
+            in
+            getConnectedComplements2 newSparse newAcc
 
 
 
