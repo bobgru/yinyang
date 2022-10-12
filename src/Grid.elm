@@ -273,15 +273,44 @@ checkWin sparse =
                             getConnectedCells (matchColor black) blackCells locBlack
                                 |> Set.union (Set.singleton locBlack)
 
+                        blackHasTwoByTwoErrors =
+                            checkSquares blackCells
+
                         connectedWhiteCells =
                             getConnectedCells (matchColor white) whiteCells locWhite
                                 |> Set.union (Set.singleton locWhite)
+
+                        whiteHasTwoByTwoErrors =
+                            checkSquares whiteCells
                     in
-                    -- TODO not checking for errors
-                    Set.size connectedBlackCells
+                    not blackHasTwoByTwoErrors
+                        && not whiteHasTwoByTwoErrors
+                        && Set.size connectedBlackCells
                         + Set.size connectedWhiteCells
                         == sparse.grid.width
                         * sparse.grid.height
+
+
+checkSquares : SparseCells -> Bool
+checkSquares cells =
+    let
+        isGroupError : List Location -> Bool
+        isGroupError testCells =
+            List.all (\loc -> Dict.member loc cells) testCells
+
+        neighborGroups : Location -> List (List Location)
+        neighborGroups ( r, c ) =
+            [ [ ( r - 1, c - 1 ), ( r - 1, c ), ( r, c - 1 ), ( r, c ) ]
+            , [ ( r - 1, c ), ( r - 1, c + 1 ), ( r, c ), ( r, c + 1 ) ]
+            , [ ( r, c - 1 ), ( r, c ), ( r + 1, c - 1 ), ( r + 1, c ) ]
+            , [ ( r, c ), ( r, c + 1 ), ( r + 1, c ), ( r + 1, c + 1 ) ]
+            ]
+
+        checkCellError : Location -> Bool
+        checkCellError loc =
+            not <| List.isEmpty <| List.concat <| List.filter isGroupError <| neighborGroups loc
+    in
+    List.any identity <| Dict.values <| Dict.map (\k _ -> checkCellError k) cells
 
 
 checkErrorInComplement : Model -> Maybe Location -> Set.Set Location -> Bool
