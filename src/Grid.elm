@@ -253,6 +253,9 @@ checkWin sparse =
     let
         blackCells =
             Dict.filter (\_ cell -> matchBlack cell) sparse.grid.cells
+
+        blackLocations =
+            blackCells |> Dict.keys |> Set.fromList
     in
     case Dict.toList blackCells |> List.head of
         Nothing ->
@@ -262,6 +265,9 @@ checkWin sparse =
             let
                 whiteCells =
                     Dict.filter (\_ cell -> matchWhite cell) sparse.grid.cells
+
+                whiteLocations =
+                    whiteCells |> Dict.keys |> Set.fromList
             in
             case Dict.toList whiteCells |> List.head of
                 Nothing ->
@@ -274,14 +280,14 @@ checkWin sparse =
                                 |> Set.union (Set.singleton locBlack)
 
                         blackHasTwoByTwoErrors =
-                            checkSquaresInFilteredCells blackCells
+                            checkSquaresInLocations blackLocations
 
                         connectedWhiteCells =
                             getConnectedCells (matchColor white) whiteCells locWhite
                                 |> Set.union (Set.singleton locWhite)
 
                         whiteHasTwoByTwoErrors =
-                            checkSquaresInFilteredCells whiteCells
+                            checkSquaresInLocations whiteLocations
                     in
                     not blackHasTwoByTwoErrors
                         && not whiteHasTwoByTwoErrors
@@ -291,53 +297,53 @@ checkWin sparse =
                         * sparse.grid.height
 
 
-checkSquaresInFilteredCells : SparseCells -> Bool
-checkSquaresInFilteredCells cells =
-    Dict.keys cells |> Set.fromList |> getSquaresInFilteredCells |> Set.isEmpty |> not
+checkSquaresInLocations : Set.Set Location -> Bool
+checkSquaresInLocations locs =
+    getSquaresForLocations locs |> Set.isEmpty |> not
 
 
 getSquares : SparseCells -> Set.Set Location
 getSquares cells =
     let
-        blackCells =
+        blacks =
             Dict.filter (\_ cell -> matchBlack cell) cells
                 |> Dict.keys
                 |> Set.fromList
 
         blackSquares =
-            getSquaresInFilteredCells blackCells
+            getSquaresForLocations blacks
 
-        whiteCells =
+        whites =
             Dict.filter (\_ cell -> matchWhite cell) cells
                 |> Dict.keys
                 |> Set.fromList
 
         whiteSquares =
-            getSquaresInFilteredCells whiteCells
+            getSquaresForLocations whites
     in
     Set.union blackSquares whiteSquares
 
 
-getSquaresInFilteredCells : Set.Set Location -> Set.Set Location
-getSquaresInFilteredCells cells =
+getSquaresForLocations : Set.Set Location -> Set.Set Location
+getSquaresForLocations locs =
     let
-        isGroupError : List Location -> Bool
-        isGroupError testCells =
-            List.all (\loc -> Set.member loc cells) testCells
+        isSquare : List Location -> Bool
+        isSquare =
+            List.all (\loc -> Set.member loc locs)
 
-        neighborGroups : Location -> List (List Location)
-        neighborGroups ( r, c ) =
+        possibleSquares : Location -> List (List Location)
+        possibleSquares ( r, c ) =
             [ [ ( r - 1, c - 1 ), ( r - 1, c ), ( r, c - 1 ), ( r, c ) ]
             , [ ( r - 1, c ), ( r - 1, c + 1 ), ( r, c ), ( r, c + 1 ) ]
             , [ ( r, c - 1 ), ( r, c ), ( r + 1, c - 1 ), ( r + 1, c ) ]
             , [ ( r, c ), ( r, c + 1 ), ( r + 1, c ), ( r + 1, c + 1 ) ]
             ]
 
-        checkCellError : Location -> Bool
-        checkCellError loc =
-            not <| List.isEmpty <| List.concat <| List.filter isGroupError <| neighborGroups loc
+        getSquaresForLocation : Location -> Set.Set Location
+        getSquaresForLocation loc =
+            Set.fromList <| List.concat <| List.filter isSquare <| possibleSquares loc
     in
-    Set.fromList <| List.filter checkCellError <| Set.toList cells
+    List.foldr Set.union Set.empty <| List.map getSquaresForLocation <| Set.toList locs
 
 
 checkErrorInComplement : Model -> Maybe Location -> Set.Set Location -> Bool
