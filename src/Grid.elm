@@ -229,11 +229,11 @@ highlightedCells sparse mloc =
 
                 twoByTwoErrors : Set.Set Location
                 twoByTwoErrors =
-                    getTwoByTwoErrors sparse mloc
+                    getSquares sparse.grid.cells
 
                 checkerboardErrors : Set.Set Location
                 checkerboardErrors =
-                    getCheckerboardErrors sparse
+                    getCheckerboardErrors sparse.grid.cells
             in
             if errorInComplement then
                 List.foldr Set.union Set.empty [ twoByTwoErrors, checkerboardErrors, connectedCellsPlus ]
@@ -274,14 +274,14 @@ checkWin sparse =
                                 |> Set.union (Set.singleton locBlack)
 
                         blackHasTwoByTwoErrors =
-                            checkSquares blackCells
+                            checkSquaresInFilteredCells blackCells
 
                         connectedWhiteCells =
                             getConnectedCells (matchColor white) whiteCells locWhite
                                 |> Set.union (Set.singleton locWhite)
 
                         whiteHasTwoByTwoErrors =
-                            checkSquares whiteCells
+                            checkSquaresInFilteredCells whiteCells
                     in
                     not blackHasTwoByTwoErrors
                         && not whiteHasTwoByTwoErrors
@@ -291,12 +291,39 @@ checkWin sparse =
                         * sparse.grid.height
 
 
-checkSquares : SparseCells -> Bool
-checkSquares cells =
+checkSquaresInFilteredCells : SparseCells -> Bool
+checkSquaresInFilteredCells cells =
+    Dict.keys cells |> Set.fromList |> getSquaresInFilteredCells |> Set.isEmpty |> not
+
+
+getSquares : SparseCells -> Set.Set Location
+getSquares cells =
+    let
+        blackCells =
+            Dict.filter (\_ cell -> matchBlack cell) cells
+                |> Dict.keys
+                |> Set.fromList
+
+        blackSquares =
+            getSquaresInFilteredCells blackCells
+
+        whiteCells =
+            Dict.filter (\_ cell -> matchWhite cell) cells
+                |> Dict.keys
+                |> Set.fromList
+
+        whiteSquares =
+            getSquaresInFilteredCells whiteCells
+    in
+    Set.union blackSquares whiteSquares
+
+
+getSquaresInFilteredCells : Set.Set Location -> Set.Set Location
+getSquaresInFilteredCells cells =
     let
         isGroupError : List Location -> Bool
         isGroupError testCells =
-            List.all (\loc -> Dict.member loc cells) testCells
+            List.all (\loc -> Set.member loc cells) testCells
 
         neighborGroups : Location -> List (List Location)
         neighborGroups ( r, c ) =
@@ -310,7 +337,7 @@ checkSquares cells =
         checkCellError loc =
             not <| List.isEmpty <| List.concat <| List.filter isGroupError <| neighborGroups loc
     in
-    List.any identity <| Dict.values <| Dict.map (\k _ -> checkCellError k) cells
+    Set.fromList <| List.filter checkCellError <| Set.toList cells
 
 
 checkErrorInComplement : Model -> Maybe Location -> Set.Set Location -> Bool
@@ -339,37 +366,27 @@ checkErrorInComplement sparse mloc connectedCellsPlus =
                 List.length connectedComplements > 1
 
 
-getTwoByTwoErrors : Model -> Maybe Location -> Set.Set Location
-getTwoByTwoErrors sparse mloc =
-    case mloc of
-        Nothing ->
-            Set.empty
-
-        Just loc ->
-            getErrorCells sparse loc
-
-
-getCheckerboardErrors : Model -> Set.Set Location
-getCheckerboardErrors sparse =
+getCheckerboardErrors : SparseCells -> Set.Set Location
+getCheckerboardErrors cells =
     let
         isPartOfCheckerboard : Location -> Cell -> Bool
         isPartOfCheckerboard loc cell =
-            getCheckerboardCells sparse loc cell
+            getCheckerboardCells cells loc cell
                 |> Set.isEmpty
                 |> not
     in
-    Dict.filter isPartOfCheckerboard sparse.grid.cells
+    Dict.filter isPartOfCheckerboard cells
         |> Dict.toList
         |> List.map Tuple.first
         |> Set.fromList
 
 
-getCheckerboardCells : Model -> Location -> Cell -> Set.Set Location
-getCheckerboardCells sparse loc cell =
+getCheckerboardCells : SparseCells -> Location -> Cell -> Set.Set Location
+getCheckerboardCells cells loc cell =
     let
         allSameColor : List Location -> Bool
         allSameColor ls =
-            List.map (\l -> Dict.get l sparse.grid.cells) ls
+            List.map (\l -> Dict.get l cells) ls
                 |> List.map (Maybe.map (\c -> c.color))
                 |> List.map (Maybe.withDefault unassigned)
                 |> Set.fromList
@@ -386,7 +403,7 @@ getCheckerboardCells sparse loc cell =
 
         notAllSameColor : List Location -> Bool
         notAllSameColor ls =
-            List.map (\l -> Dict.get l sparse.grid.cells) ls
+            List.map (\l -> Dict.get l cells) ls
                 |> List.map (Maybe.map (\c -> c.color))
                 |> List.map (Maybe.withDefault unassigned)
                 |> Set.fromList
@@ -424,47 +441,6 @@ getCheckerboardCells sparse loc cell =
             List.map (\( x, y ) -> List.concat [ x, y ]) <|
                 List.filter isGroupError <|
                     neighborDiagonals loc
-
-
-getErrorCells : Model -> Location -> Set.Set Location
-getErrorCells sparse loc =
-    case Dict.get loc sparse.grid.cells of
-        Nothing ->
-            Set.empty
-
-        Just cell ->
-            if cell.color == unassigned then
-                Set.empty
-
-            else
-                getErrorCells2 sparse loc cell
-
-
-getErrorCells2 : Model -> Location -> Cell -> Set.Set Location
-getErrorCells2 sparse loc cell =
-    let
-        sameColor : Location -> Bool
-        sameColor loc2 =
-            case Dict.get loc2 sparse.grid.cells of
-                Nothing ->
-                    False
-
-                Just cell2 ->
-                    cell2.color == cell.color
-
-        isGroupError : List Location -> Bool
-        isGroupError testCells =
-            List.all sameColor testCells
-
-        neighborGroups : Location -> List (List Location)
-        neighborGroups ( r, c ) =
-            [ [ ( r - 1, c - 1 ), ( r - 1, c ), ( r, c - 1 ), ( r, c ) ]
-            , [ ( r - 1, c ), ( r - 1, c + 1 ), ( r, c ), ( r, c + 1 ) ]
-            , [ ( r, c - 1 ), ( r, c ), ( r + 1, c - 1 ), ( r + 1, c ) ]
-            , [ ( r, c ), ( r, c + 1 ), ( r + 1, c ), ( r + 1, c + 1 ) ]
-            ]
-    in
-    Set.fromList <| List.concat <| List.filter isGroupError <| neighborGroups loc
 
 
 matchColor : CellColor -> Maybe Cell -> Bool
