@@ -32,7 +32,7 @@ type alias Model =
 
 initialCells : Grid.SparseGridInput
 initialCells =
-    game5
+    game3
 
 
 game1 : Grid.SparseGridInput
@@ -304,7 +304,12 @@ handlePopSnapshot model =
         ( newGrid, newUndoStack ) :: newSnapshots ->
             let
                 newModel =
-                    { model | grid = newGrid, undoStack = newUndoStack, redoStack = [] }
+                    { model
+                        | grid = newGrid
+                        , undoStack = newUndoStack
+                        , snapshots = newSnapshots
+                        , redoStack = []
+                    }
             in
             ( newModel, Cmd.none )
 
