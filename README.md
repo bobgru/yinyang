@@ -34,6 +34,7 @@ Pressing "s" records a snapshot of the current board and undo list. Pressing "p"
 and restores the board and undo list to the previous state.
 
 Pressing "e" toggles display of errors, so you can play without the hints if desired.
+
 Pressing "w" toggles display of wins, so you can have the system confirm your win after you've
 convinced yourself first.
 
