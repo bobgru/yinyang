@@ -25,18 +25,16 @@ to be orthogonally connected. This hint is sometimes false in that you might be 
 the enclosed cell the same color as the enclosing cells.
 * A checkerboard pattern, i.e. crossed black and white diagonals, because it leads to the previous condition.
 
-A winning game is highlighted in orange.
+Pressing "e" toggles display of errors, so you can play without the hints if desired.
+
+A winning game is highlighted in orange. Press "w" to toggle this behavior, so you can have the system
+confirm your win after you've convinced yourself first.
 
 Pressing "u" undoes the last move if there was one, moving it to a "redo" list. Pressing "r" replays the
 next move in the redo list. A mouseclick adds a move to the undo list and clears the redo list.
 
 Pressing "s" records a snapshot of the current board and undo list. Pressing "p" pops a snapshot off the stack
 and restores the board and undo list to the previous state.
-
-Pressing "e" toggles display of errors, so you can play without the hints if desired.
-
-Pressing "w" toggles display of wins, so you can have the system confirm your win after you've
-convinced yourself first.
 
 There is enough functionality to practice the samples, but there are features I would like to add:
 * Add visual effects to help indicate what has changed
