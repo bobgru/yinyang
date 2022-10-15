@@ -14,3 +14,4 @@ type Msg
     | CellLeftClicked Location
     | CellRightClicked Location
     | CellHighlighted (Maybe Location)
+    | GotRandomSample Int
