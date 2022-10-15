@@ -616,8 +616,8 @@ getConnectedComplements2 sparse acc =
 ---- VIEW ----
 
 
-view : Float -> Float -> Model -> Bool -> Element Msg
-view viewportWidth viewportHeight model showErrors =
+view : Float -> Float -> Model -> Bool -> Bool -> Element Msg
+view viewportWidth viewportHeight model showErrors showWins =
     let
         width =
             model.grid.width
@@ -652,13 +652,14 @@ view viewportWidth viewportHeight model showErrors =
                     model.errorCells
                     model.isWin
                     showErrors
+                    showWins
                     rw
             )
             dense.cells
 
 
-rowView : Int -> Int -> Int -> Maybe Location -> Set.Set Location -> Set.Set Location -> Bool -> Bool -> List Cell -> Element Msg
-rowView rowIndex gridWidth cellSize mHighlightedCell connectedCells errorCells isWin showErrors rowCells =
+rowView : Int -> Int -> Int -> Maybe Location -> Set.Set Location -> Set.Set Location -> Bool -> Bool -> Bool -> List Cell -> Element Msg
+rowView rowIndex gridWidth cellSize mHighlightedCell connectedCells errorCells isWin showErrors showWins rowCells =
     row
         [ centerX
         , centerY
@@ -675,13 +676,14 @@ rowView rowIndex gridWidth cellSize mHighlightedCell connectedCells errorCells i
                     errorCells
                     isWin
                     showErrors
+                    showWins
                     cell
             )
             rowCells
 
 
-dot : Location -> Int -> Maybe Location -> Set.Set Location -> Set.Set Location -> Bool -> Bool -> Cell -> Element Msg
-dot loc cellSize mHighlightedCell connectedCells errorCells isWin showErrors cell =
+dot : Location -> Int -> Maybe Location -> Set.Set Location -> Set.Set Location -> Bool -> Bool -> Bool -> Cell -> Element Msg
+dot loc cellSize mHighlightedCell connectedCells errorCells isWin showErrors showWins cell =
     let
         cx =
             String.fromInt <| round (toFloat cellSize / 2)
@@ -720,7 +722,7 @@ dot loc cellSize mHighlightedCell connectedCells errorCells isWin showErrors cel
                         "lightgray"
 
                 fillColor =
-                    if isWin then
+                    if isWin && showWins then
                         "orange"
 
                     else if isError && showErrors then

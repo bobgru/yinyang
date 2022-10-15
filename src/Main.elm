@@ -29,6 +29,7 @@ type alias Model =
     , undoStack : List ( Location, Grid.CellColor )
     , redoStack : List ( Location, Grid.CellColor )
     , showErrors : Bool
+    , showWins : Bool
     }
 
 
@@ -49,6 +50,7 @@ initialModel =
     , undoStack = []
     , redoStack = []
     , showErrors = True
+    , showWins = True
     }
 
 
@@ -101,8 +103,11 @@ update msg model =
 handleKeyPress : Char -> Model -> ( Model, Cmd Msg )
 handleKeyPress c model =
     case c of
+        'w' ->
+            toggleShowWins model
+
         'e' ->
-            toggleShowError model
+            toggleShowErrors model
 
         'u' ->
             handleUndo model
@@ -174,8 +179,12 @@ handlePopSnapshot model =
             ( model, Cmd.none )
 
 
-toggleShowError model =
+toggleShowErrors model =
     ( { model | showErrors = not model.showErrors }, Cmd.none )
+
+
+toggleShowWins model =
+    ( { model | showWins = not model.showWins }, Cmd.none )
 
 
 refreshViewport : Cmd Msg
@@ -246,7 +255,7 @@ highlightCells model mloc =
 view : Model -> Html Msg
 view model =
     Element.layout [] <|
-        Grid.view model.viewportWidth model.viewportHeight model.grid model.showErrors
+        Grid.view model.viewportWidth model.viewportHeight model.grid model.showErrors model.showWins
 
 
 
