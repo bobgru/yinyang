@@ -28,6 +28,7 @@ type alias Model =
     , error : Maybe String
     , undoStack : List ( Location, Grid.CellColor )
     , redoStack : List ( Location, Grid.CellColor )
+    , showErrors : Bool
     }
 
 
@@ -47,6 +48,7 @@ initialModel =
     , error = Nothing
     , undoStack = []
     , redoStack = []
+    , showErrors = True
     }
 
 
@@ -72,21 +74,7 @@ update msg model =
             updateViewPort model viewportResult
 
         CharacterKeyPressed c ->
-            case c of
-                'u' ->
-                    handleUndo model
-
-                'r' ->
-                    handleRedo model
-
-                's' ->
-                    handlePushSnapshot model
-
-                'p' ->
-                    handlePopSnapshot model
-
-                _ ->
-                    ( model, Cmd.none )
+            handleKeyPress c model
 
         ControlKeyPressed keyValue ->
             ( model, Cmd.none )
@@ -108,6 +96,28 @@ update msg model =
               }
             , refreshViewport
             )
+
+
+handleKeyPress : Char -> Model -> ( Model, Cmd Msg )
+handleKeyPress c model =
+    case c of
+        'e' ->
+            toggleShowError model
+
+        'u' ->
+            handleUndo model
+
+        'r' ->
+            handleRedo model
+
+        's' ->
+            handlePushSnapshot model
+
+        'p' ->
+            handlePopSnapshot model
+
+        _ ->
+            ( model, Cmd.none )
 
 
 handleUndo model =
@@ -162,6 +172,10 @@ handlePopSnapshot model =
 
         _ ->
             ( model, Cmd.none )
+
+
+toggleShowError model =
+    ( { model | showErrors = not model.showErrors }, Cmd.none )
 
 
 refreshViewport : Cmd Msg
@@ -232,7 +246,7 @@ highlightCells model mloc =
 view : Model -> Html Msg
 view model =
     Element.layout [] <|
-        Grid.view model.viewportWidth model.viewportHeight model.grid
+        Grid.view model.viewportWidth model.viewportHeight model.grid model.showErrors
 
 
 

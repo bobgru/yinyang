@@ -33,6 +33,8 @@ next move in the redo list. A mouseclick adds a move to the undo list and clears
 Pressing "s" records a snapshot of the current board and undo list. Pressing "p" pops a snapshot off the stack
 and restores the board and undo list to the previous state.
 
+Pressing "e" toggles display of errors, so if you can play without the hints if desired.
+
 There is enough functionality to practice the samples, but there are features I would like to add:
 * Add visual effects to help indicate what has changed
 * Select the sample from a menu

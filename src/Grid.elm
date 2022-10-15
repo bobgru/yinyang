@@ -616,8 +616,8 @@ getConnectedComplements2 sparse acc =
 ---- VIEW ----
 
 
-view : Float -> Float -> Model -> Element Msg
-view viewportWidth viewportHeight model =
+view : Float -> Float -> Model -> Bool -> Element Msg
+view viewportWidth viewportHeight model showErrors =
     let
         width =
             model.grid.width
@@ -651,13 +651,14 @@ view viewportWidth viewportHeight model =
                     model.connectedCells
                     model.errorCells
                     model.isWin
+                    showErrors
                     rw
             )
             dense.cells
 
 
-rowView : Int -> Int -> Int -> Maybe Location -> Set.Set Location -> Set.Set Location -> Bool -> List Cell -> Element Msg
-rowView rowIndex gridWidth cellSize mHighlightedCell connectedCells errorCells isWin rowCells =
+rowView : Int -> Int -> Int -> Maybe Location -> Set.Set Location -> Set.Set Location -> Bool -> Bool -> List Cell -> Element Msg
+rowView rowIndex gridWidth cellSize mHighlightedCell connectedCells errorCells isWin showErrors rowCells =
     row
         [ centerX
         , centerY
@@ -673,13 +674,14 @@ rowView rowIndex gridWidth cellSize mHighlightedCell connectedCells errorCells i
                     connectedCells
                     errorCells
                     isWin
+                    showErrors
                     cell
             )
             rowCells
 
 
-dot : Location -> Int -> Maybe Location -> Set.Set Location -> Set.Set Location -> Bool -> Cell -> Element Msg
-dot loc cellSize mHighlightedCell connectedCells errorCells isWin cell =
+dot : Location -> Int -> Maybe Location -> Set.Set Location -> Set.Set Location -> Bool -> Bool -> Cell -> Element Msg
+dot loc cellSize mHighlightedCell connectedCells errorCells isWin showErrors cell =
     let
         cx =
             String.fromInt <| round (toFloat cellSize / 2)
@@ -721,7 +723,7 @@ dot loc cellSize mHighlightedCell connectedCells errorCells isWin cell =
                     if isWin then
                         "orange"
 
-                    else if isError then
+                    else if isError && showErrors then
                         "red"
 
                     else if inConnectedSet then
