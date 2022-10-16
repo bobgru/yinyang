@@ -22,6 +22,7 @@ type alias Model =
     { grid : Grid.Model
     , snapshots : List ( Grid.Model, List ( Location, Grid.CellColor ) )
     , initialCells : Grid.SparseGridInput
+    , selectedSample : Int
     , cellHoveredOver : Maybe Location
     , viewportWidth : Float
     , viewportHeight : Float
@@ -42,7 +43,8 @@ initialModel : Model
 initialModel =
     { grid = Grid.initialModel initialCells
     , snapshots = []
-    , initialCells = initialCells
+    , initialCells = initialCells -- placeholder 
+    , selectedSample = 0 -- placeholder
     , cellHoveredOver = Nothing
     , viewportWidth = 500.0 -- placeholder
     , viewportHeight = 500.0 -- placeholder
@@ -95,6 +97,7 @@ update msg model =
         GotRandomSample i ->
             ( { model
                 | grid = Grid.initialModel (Samples.get i)
+                , selectedSample = i
               }
             , refreshViewport
             )
@@ -256,14 +259,46 @@ view : Model -> Html Msg
 view model =
     Element.layout [] <|
         row [ width fill, height fill] 
-        [  leftSidebar
+        [  leftSidebar model
         ,  Grid.view model.viewportWidth model.viewportHeight model.grid model.showErrors model.showWins
         , rightSidebar
         ]
 
-leftSidebar = column [height fill] [ text "Left Sidebar"]
+leftSidebar model =
+    column [width (px 200), height fill, paddingXY 10 10] 
+        [ sampleGameSelectorView model
+        , errorModeView model
+        , winModeView model
+        , snapshotCountView model
+        ]
+
 rightSidebar = column [height fill] [text "Right Sidebar"]
 
+sampleGameSelectorView model = 
+    el [paddingXY 10 10] (text ("Sample Game: " ++ String.fromInt model.selectedSample))
+
+errorModeView model =
+    let
+      txt = if model.showErrors then
+                "Yes"
+            else
+                "No"
+    in
+    el [paddingXY 10 10] (text <| "Show Errors: " ++ txt)
+
+winModeView model =
+    let
+      txt = if model.showWins then
+                "Yes"
+            else
+                "No"
+    in
+    el [paddingXY 10 10] (text <| "Show Wins: " ++ txt)
+
+
+snapshotCountView model =
+    el [paddingXY 10 10 ] (text ("Snapshots: " ++ String.fromInt (List.length model.snapshots)))
+    
 ---- SUBSCRIPTIONS ----
 
 
