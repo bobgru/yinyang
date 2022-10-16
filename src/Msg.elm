@@ -1,7 +1,6 @@
 module Msg exposing (..)
 
 import Browser.Dom as Dom
-import Json.Decode as D
 import Location exposing (..)
 
 

@@ -4,6 +4,7 @@ import Dict
 import Element exposing (..)
 import Element.Border as Border
 import Element.Events exposing (onClick, onMouseLeave)
+import Html.Attributes as HA exposing (id)
 import Html.Events exposing (custom, onMouseOver)
 import Json.Decode as Decode
 import Location exposing (..)
@@ -635,11 +636,14 @@ view viewportWidth viewportHeight model showErrors showWins =
             denseFromSparse model.grid
     in
     column
-        [ centerX
+        [ Element.width fill
+        , Element.height fill
+        , centerX
         , centerY
         , Border.color (rgb 0 0 0)
         , Border.width 1
         , onMouseLeave (CellHighlighted Nothing)
+        , htmlAttribute (HA.id "game_grid")
         ]
     <|
         List.indexedMap

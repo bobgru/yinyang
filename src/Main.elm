@@ -44,8 +44,8 @@ initialModel =
     , snapshots = []
     , initialCells = initialCells
     , cellHoveredOver = Nothing
-    , viewportWidth = 1.0 -- placeholder
-    , viewportHeight = 1.0 -- placeholder
+    , viewportWidth = 500.0 -- placeholder
+    , viewportHeight = 500.0 -- placeholder
     , error = Nothing
     , undoStack = []
     , redoStack = []
@@ -189,7 +189,7 @@ toggleShowWins model =
 
 refreshViewport : Cmd Msg
 refreshViewport =
-    Task.attempt ViewPortChanged Dom.getViewport
+    Task.attempt ViewPortChanged (Dom.getViewportOf "game_grid")
 
 
 updateViewPort model viewportResult =
@@ -255,9 +255,14 @@ highlightCells model mloc =
 view : Model -> Html Msg
 view model =
     Element.layout [] <|
-        Grid.view model.viewportWidth model.viewportHeight model.grid model.showErrors model.showWins
+        row [ width fill, height fill] 
+        [  leftSidebar
+        ,  Grid.view model.viewportWidth model.viewportHeight model.grid model.showErrors model.showWins
+        , rightSidebar
+        ]
 
-
+leftSidebar = column [height fill] [ text "Left Sidebar"]
+rightSidebar = column [height fill] [text "Right Sidebar"]
 
 ---- SUBSCRIPTIONS ----
 
