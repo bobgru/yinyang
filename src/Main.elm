@@ -310,23 +310,19 @@ updateViewPort viewportResult model =
                     Running { state | error = Just "no viewport" }
 
 
+flipMaybeAndThen : Maybe a -> (a -> Maybe b) -> Maybe b
+flipMaybeAndThen m f =
+    Maybe.andThen f m
+
+
 fullConfig : Config -> Maybe FullConfig
 fullConfig config =
-    case config.sampleGameIndex of
-        Nothing ->
-            Nothing
-
-        Just sgi ->
-            case config.viewportHeight of
-                Nothing ->
-                    Nothing
-
-                Just vph ->
-                    case config.viewportWidth of
-                        Nothing ->
-                            Nothing
-
-                        Just vpw ->
+    flipMaybeAndThen config.sampleGameIndex
+        (\sgi ->
+            flipMaybeAndThen config.viewportHeight
+                (\vph ->
+                    flipMaybeAndThen config.viewportWidth
+                        (\vpw ->
                             case config.error of
                                 Nothing ->
                                     Just
@@ -337,6 +333,9 @@ fullConfig config =
 
                                 Just _ ->
                                     Nothing
+                        )
+                )
+        )
 
 
 updateCellColor : Location -> Grid.CellColor -> Bool -> GameState -> GameState
