@@ -277,6 +277,9 @@ updateViewPort viewportResult model =
                                 | viewportWidth = Just viewport.viewport.width
                                 , viewportHeight = Just viewport.viewport.height
                                 , error = Nothing
+
+                                -- For testing error display during loading:
+                                -- , error = Just "SABOTAGE! Sound the alarm!"
                             }
                     in
                     case fullConfig newConfig of
@@ -386,9 +389,20 @@ view model =
     Element.layout [] <|
         row [ width fill, height fill ] <|
             case model of
-                Loading _ ->
+                Loading config ->
                     [ leftSidebarPlaceholder
-                    , el [ Element.htmlAttribute (HA.id "game_grid"), width fill, height fill ] (text "Loading")
+                    , el [ Element.htmlAttribute (HA.id "game_grid"), width fill, height fill ]
+                        (text
+                            ("Loading"
+                                ++ (case config.error of
+                                        Nothing ->
+                                            ""
+
+                                        Just err ->
+                                            ", but there was a problem: " ++ err
+                                   )
+                            )
+                        )
                     , rightSidebar
                     ]
 
