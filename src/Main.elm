@@ -269,48 +269,67 @@ updateViewPort : Result Dom.Error Dom.Viewport -> Model -> Model
 updateViewPort viewportResult model =
     case model of
         Loading config ->
-            case viewportResult of
-                Ok viewport ->
-                    let
-                        newConfig =
-                            { config
-                                | viewportWidth = Just viewport.viewport.width
-                                , viewportHeight = Just viewport.viewport.height
-                                , error = Nothing
-
-                                -- For testing error display during loading:
-                                -- , error = Just "SABOTAGE! Sound the alarm!"
-                            }
-                    in
-                    case fullConfig newConfig of
-                        Just fc ->
-                            Running (initialGameState fc)
-
-                        Nothing ->
-                            Loading newConfig
-
-                Err _ ->
-                    let
-                        newConfig =
-                            { config | error = Just "no viewport" }
-                    in
-                    Loading newConfig
+            setInitialViewport config viewportResult
 
         Running state ->
-            case viewportResult of
-                Ok viewport ->
-                    let
-                        newState =
-                            { state
-                                | viewportWidth = viewport.viewport.width
-                                , viewportHeight = viewport.viewport.height
-                                , error = Nothing
-                            }
-                    in
-                    Running newState
+            setRunningGameViewport state viewportResult
 
-                Err _ ->
-                    Running { state | error = Just "no viewport" }
+
+setInitialViewport : Config -> Result Dom.Error Dom.Viewport -> Model
+setInitialViewport config viewportResult =
+    case viewportResult of
+        Ok viewport ->
+            let
+                newConfig =
+                    { config
+                        | viewportWidth = Just viewport.viewport.width
+                        , viewportHeight = Just viewport.viewport.height
+                        , error = Nothing
+
+                        -- For testing error display during loading:
+                        -- , error = Just "SABOTAGE! Sound the alarm!"
+                    }
+            in
+            maybeStartGame newConfig
+
+        Err _ ->
+            let
+                newConfig =
+                    { config | error = Just "no viewport" }
+            in
+            Loading newConfig
+
+
+setRunningGameViewport : GameState -> Result Dom.Error Dom.Viewport -> Model
+setRunningGameViewport state viewportResult =
+    case viewportResult of
+        Ok viewport ->
+            let
+                newState =
+                    { state
+                        | viewportWidth = viewport.viewport.width
+                        , viewportHeight = viewport.viewport.height
+                        , error = Nothing
+                    }
+            in
+            Running newState
+
+        Err _ ->
+            Running { state | error = Just "no viewport" }
+
+
+
+-- This is the only place we flip from Loading to Running
+
+
+maybeStartGame : Config -> Model
+maybeStartGame newConfig =
+    case fullConfig newConfig of
+        Nothing ->
+            Loading newConfig
+
+        Just fc ->
+            Running (initialGameState fc)
 
 
 flipMaybeAndThen : Maybe a -> (a -> Maybe b) -> Maybe b
