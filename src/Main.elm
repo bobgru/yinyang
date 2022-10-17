@@ -1,11 +1,12 @@
 module Main exposing (..)
 
-import Browser exposing (element)
+import Browser
 import Browser.Dom as Dom
 import Browser.Events as E
 import Element exposing (..)
-import Grid as Grid exposing (black, unassigned, white)
+import Grid as Grid
 import Html exposing (Html)
+import Html.Attributes as HA
 import Json.Decode as Decode
 import Location exposing (..)
 import Msg exposing (..)
@@ -18,39 +19,66 @@ import Task exposing (..)
 ---- MODEL ----
 
 
-type alias Model =
+type Model
+    = Loading Config
+    | Running GameState
+
+
+
+-- Accumulate the starting configuration until we have all of it,
+-- then we can switch to Running.
+
+
+type alias Config =
+    { sampleGameIndex : Maybe Int
+    , viewportWidth : Maybe Float
+    , viewportHeight : Maybe Float
+    , error : Maybe String
+    }
+
+
+type alias FullConfig =
+    { sampleGameIndex : Int
+    , viewportWidth : Float
+    , viewportHeight : Float
+    }
+
+
+type alias GameState =
     { grid : Grid.Model
-    , snapshots : List ( Grid.Model, List ( Location, Grid.CellColor ) )
-    , initialCells : Grid.SparseGridInput
     , selectedSample : Int
-    , cellHoveredOver : Maybe Location
     , viewportWidth : Float
     , viewportHeight : Float
     , error : Maybe String
+    , snapshots : List ( Grid.Model, List ( Location, Grid.CellColor ) )
     , undoStack : List ( Location, Grid.CellColor )
     , redoStack : List ( Location, Grid.CellColor )
+    , cellHoveredOver : Maybe Location
     , showErrors : Bool
     , showWins : Bool
     }
 
 
-initialCells : Grid.SparseGridInput
-initialCells =
-    Samples.first
-
-
-initialModel : Model
-initialModel =
-    { grid = Grid.initialModel initialCells
-    , snapshots = []
-    , initialCells = initialCells -- placeholder 
-    , selectedSample = 0 -- placeholder
-    , cellHoveredOver = Nothing
-    , viewportWidth = 500.0 -- placeholder
-    , viewportHeight = 500.0 -- placeholder
+initialConfig : Config
+initialConfig =
+    { sampleGameIndex = Nothing
+    , viewportHeight = Nothing
+    , viewportWidth = Nothing
     , error = Nothing
+    }
+
+
+initialGameState : FullConfig -> GameState
+initialGameState config =
+    { grid = Grid.initialModel (Samples.get config.sampleGameIndex)
+    , selectedSample = config.sampleGameIndex
+    , viewportWidth = config.viewportWidth
+    , viewportHeight = config.viewportHeight
+    , error = Nothing
+    , snapshots = []
     , undoStack = []
     , redoStack = []
+    , cellHoveredOver = Nothing
     , showErrors = True
     , showWins = True
     }
@@ -58,7 +86,7 @@ initialModel =
 
 init : ( Model, Cmd Msg )
 init =
-    ( initialModel, Samples.selectRandomSample )
+    ( Loading initialConfig, Samples.selectRandomSample )
 
 
 
@@ -75,119 +103,161 @@ update msg model =
             ( model, refreshViewport )
 
         ViewPortChanged viewportResult ->
-            updateViewPort model viewportResult
+            ( updateViewPort viewportResult model, Cmd.none )
 
         CharacterKeyPressed c ->
-            handleKeyPress c model
+            ( handleKeyPress c model, Cmd.none )
 
-        ControlKeyPressed keyValue ->
+        ControlKeyPressed _ ->
             ( model, Cmd.none )
 
         CellLeftClicked loc ->
-            updateCellColor model loc Grid.black False
-                |> (\( mdl, _ ) -> highlightCells mdl (Just loc))
+            ( cellClicked loc Grid.black model, Cmd.none )
 
         CellRightClicked loc ->
-            updateCellColor model loc Grid.white False
-                |> (\( mdl, _ ) -> highlightCells mdl (Just loc))
+            ( cellClicked loc Grid.white model, Cmd.none )
 
         CellHighlighted mloc ->
-            highlightCells model mloc
+            case model of
+                Loading _ ->
+                    ( model, Cmd.none )
+
+                Running state ->
+                    ( Running <| highlightCells mloc state, Cmd.none )
 
         GotRandomSample i ->
-            ( { model
-                | grid = Grid.initialModel (Samples.get i)
-                , selectedSample = i
-              }
-            , refreshViewport
-            )
+            ( setSample i model, refreshViewport )
 
 
-handleKeyPress : Char -> Model -> ( Model, Cmd Msg )
+cellClicked : Location -> Grid.CellColor -> Model -> Model
+cellClicked loc clr model =
+    case model of
+        Loading _ ->
+            model
+
+        Running state ->
+            let
+                newState =
+                    updateCellColor loc clr False state
+                        |> highlightCells (Just loc)
+            in
+            Running newState
+
+
+setSample : Int -> Model -> Model
+setSample i model =
+    case model of
+        Loading config ->
+            Loading { config | sampleGameIndex = Just i }
+
+        Running state ->
+            Running
+                { state
+                    | selectedSample = i
+                    , grid = Grid.initialModel (Samples.get i)
+                }
+
+
+handleKeyPress : Char -> Model -> Model
 handleKeyPress c model =
-    case c of
-        'w' ->
-            toggleShowWins model
+    case model of
+        Loading _ ->
+            model
 
-        'e' ->
-            toggleShowErrors model
+        Running state ->
+            let
+                newState =
+                    case c of
+                        'w' ->
+                            toggleShowWins state
 
-        'u' ->
-            handleUndo model
+                        'e' ->
+                            toggleShowErrors state
 
-        'r' ->
-            handleRedo model
+                        'u' ->
+                            handleUndo state
 
-        's' ->
-            handlePushSnapshot model
+                        'r' ->
+                            handleRedo state
 
-        'p' ->
-            handlePopSnapshot model
+                        's' ->
+                            handlePushSnapshot state
 
-        _ ->
-            ( model, Cmd.none )
+                        'p' ->
+                            handlePopSnapshot state
+
+                        _ ->
+                            state
+            in
+            Running newState
 
 
-handleUndo model =
-    case ( model.undoStack, model.redoStack ) of
+handleUndo : GameState -> GameState
+handleUndo state =
+    case ( state.undoStack, state.redoStack ) of
         ( ( loc, clr ) :: newUndoStack, _ ) ->
             let
-                newModel =
-                    { model | undoStack = newUndoStack, redoStack = ( loc, clr ) :: model.redoStack }
+                newState =
+                    { state | undoStack = newUndoStack, redoStack = ( loc, clr ) :: state.redoStack }
             in
-            updateCellColor newModel loc clr True
-                |> (\( mdl, _ ) -> highlightCells mdl (Just loc))
+            updateCellColor loc clr True newState
+                |> highlightCells (Just loc)
 
         _ ->
-            ( model, Cmd.none )
+            state
 
 
-handleRedo model =
-    case ( model.undoStack, model.redoStack ) of
+handleRedo : GameState -> GameState
+handleRedo state =
+    case ( state.undoStack, state.redoStack ) of
         ( _, ( loc, clr ) :: newRedoStack ) ->
             let
-                newModel =
-                    { model | redoStack = newRedoStack, undoStack = ( loc, clr ) :: model.undoStack }
+                newState =
+                    { state | redoStack = newRedoStack, undoStack = ( loc, clr ) :: state.undoStack }
             in
-            updateCellColor newModel loc clr True
-                |> (\( mdl, _ ) -> highlightCells mdl (Just loc))
+            updateCellColor loc clr True newState
+                |> highlightCells (Just loc)
 
         _ ->
-            ( model, Cmd.none )
+            state
 
 
-handlePushSnapshot model =
+handlePushSnapshot : GameState -> GameState
+handlePushSnapshot state =
     let
-        newModel =
-            { model | snapshots = ( model.grid, model.undoStack ) :: model.snapshots }
+        newState =
+            { state | snapshots = ( state.grid, state.undoStack ) :: state.snapshots }
     in
-    ( newModel, Cmd.none )
+    newState
 
 
-handlePopSnapshot model =
-    case model.snapshots of
+handlePopSnapshot : GameState -> GameState
+handlePopSnapshot state =
+    case state.snapshots of
         ( newGrid, newUndoStack ) :: newSnapshots ->
             let
-                newModel =
-                    { model
+                newState =
+                    { state
                         | grid = newGrid
                         , undoStack = newUndoStack
                         , snapshots = newSnapshots
                         , redoStack = []
                     }
             in
-            ( newModel, Cmd.none )
+            newState
 
         _ ->
-            ( model, Cmd.none )
+            state
 
 
-toggleShowErrors model =
-    ( { model | showErrors = not model.showErrors }, Cmd.none )
+toggleShowErrors : GameState -> GameState
+toggleShowErrors state =
+    { state | showErrors = not state.showErrors }
 
 
-toggleShowWins model =
-    ( { model | showWins = not model.showWins }, Cmd.none )
+toggleShowWins : GameState -> GameState
+toggleShowWins state =
+    { state | showWins = not state.showWins }
 
 
 refreshViewport : Cmd Msg
@@ -195,60 +265,117 @@ refreshViewport =
     Task.attempt ViewPortChanged (Dom.getViewportOf "game_grid")
 
 
-updateViewPort model viewportResult =
-    case viewportResult of
-        Ok viewport ->
-            let
-                newModel =
-                    { model
-                        | viewportWidth = viewport.viewport.width
-                        , viewportHeight = viewport.viewport.height
-                        , error = Nothing
-                    }
-            in
-            ( newModel, Cmd.none )
+updateViewPort : Result Dom.Error Dom.Viewport -> Model -> Model
+updateViewPort viewportResult model =
+    case model of
+        Loading config ->
+            case viewportResult of
+                Ok viewport ->
+                    let
+                        newConfig =
+                            { config
+                                | viewportWidth = Just viewport.viewport.width
+                                , viewportHeight = Just viewport.viewport.height
+                                , error = Nothing
+                            }
+                    in
+                    case fullConfig newConfig of
+                        Just fc ->
+                            Running (initialGameState fc)
 
-        Err _ ->
-            ( { model | error = Just "no viewport" }, Cmd.none )
+                        Nothing ->
+                            Loading newConfig
+
+                Err _ ->
+                    let
+                        newConfig =
+                            { config | error = Just "no viewport" }
+                    in
+                    Loading newConfig
+
+        Running state ->
+            case viewportResult of
+                Ok viewport ->
+                    let
+                        newState =
+                            { state
+                                | viewportWidth = viewport.viewport.width
+                                , viewportHeight = viewport.viewport.height
+                                , error = Nothing
+                            }
+                    in
+                    Running newState
+
+                Err _ ->
+                    Running { state | error = Just "no viewport" }
 
 
-updateCellColor : Model -> Location -> Grid.CellColor -> Bool -> ( Model, Cmd Msg )
-updateCellColor model loc clr undoOrRedo =
+fullConfig : Config -> Maybe FullConfig
+fullConfig config =
+    case config.sampleGameIndex of
+        Nothing ->
+            Nothing
+
+        Just sgi ->
+            case config.viewportHeight of
+                Nothing ->
+                    Nothing
+
+                Just vph ->
+                    case config.viewportWidth of
+                        Nothing ->
+                            Nothing
+
+                        Just vpw ->
+                            case config.error of
+                                Nothing ->
+                                    Just
+                                        { sampleGameIndex = sgi
+                                        , viewportHeight = vph
+                                        , viewportWidth = vpw
+                                        }
+
+                                Just _ ->
+                                    Nothing
+
+
+updateCellColor : Location -> Grid.CellColor -> Bool -> GameState -> GameState
+updateCellColor loc clr undoOrRedo state =
     let
         newUndoStack =
             if undoOrRedo then
-                model.undoStack
+                state.undoStack
 
             else
-                ( loc, clr ) :: model.undoStack
+                ( loc, clr ) :: state.undoStack
 
         newRedoStack =
             if undoOrRedo then
-                model.redoStack
+                state.redoStack
 
             else
                 []
 
-        newModel =
-            { model
-                | grid = Grid.updateCellColor loc clr model.grid
+        newState =
+            { state
+                | grid = Grid.updateCellColor loc clr state.grid
                 , undoStack = newUndoStack
                 , redoStack = newRedoStack
             }
 
-        newModel2 =
-            { newModel | grid = Grid.highlightedCells newModel.grid (Just loc) }
+        newState2 =
+            { newState | grid = Grid.highlightedCells newState.grid (Just loc) }
     in
-    ( newModel2, Cmd.none )
+    newState2
 
 
-highlightCells : Model -> Maybe Location -> ( Model, Cmd Msg )
-highlightCells model mloc =
+highlightCells : Maybe Location -> GameState -> GameState
+highlightCells mloc state =
     let
-        newModel =
-            { model | grid = Grid.highlightedCells model.grid mloc }
+        newState =
+            { state | grid = Grid.highlightedCells state.grid mloc }
     in
-    ( newModel, Cmd.none )
+    newState
 
 
 
@@ -258,47 +385,79 @@ highlightCells model mloc =
 view : Model -> Html Msg
 view model =
     Element.layout [] <|
-        row [ width fill, height fill] 
-        [  leftSidebar model
-        ,  Grid.view model.viewportWidth model.viewportHeight model.grid model.showErrors model.showWins
-        , rightSidebar
+        row [ width fill, height fill ] <|
+            case model of
+                Loading _ ->
+                    [ leftSidebarPlaceholder
+                    , el [ Element.htmlAttribute (HA.id "game_grid"), width fill, height fill ] (text "Loading")
+                    , rightSidebar
+                    ]
+
+                Running state ->
+                    [ leftSidebar state
+                    , Grid.view state.viewportWidth state.viewportHeight state.grid state.showErrors state.showWins
+                    , rightSidebar
+                    ]
+
+
+leftSidebarPlaceholder : Element msg
+leftSidebarPlaceholder =
+    column [ width (px 200), paddingXY 10 10 ]
+        []
+
+
+leftSidebar : GameState -> Element msg
+leftSidebar state =
+    column [ width (px 200), height fill, paddingXY 10 10 ]
+        [ sampleGameSelectorView state
+        , errorModeView state
+        , winModeView state
+        , snapshotCountView state
         ]
 
-leftSidebar model =
-    column [width (px 200), height fill, paddingXY 10 10] 
-        [ sampleGameSelectorView model
-        , errorModeView model
-        , winModeView model
-        , snapshotCountView model
-        ]
 
-rightSidebar = column [height fill] [text "Right Sidebar"]
+rightSidebar : Element msg
+rightSidebar =
+    column [ height fill ] [ text "Right Sidebar" ]
 
-sampleGameSelectorView model = 
-    el [paddingXY 10 10] (text ("Sample Game: " ++ String.fromInt model.selectedSample))
 
+sampleGameSelectorView : GameState -> Element msg
+sampleGameSelectorView model =
+    el [ paddingXY 10 10 ] (text ("Sample Game: " ++ String.fromInt model.selectedSample))
+
+
+errorModeView : GameState -> Element msg
 errorModeView model =
     let
-      txt = if model.showErrors then
+        txt =
+            if model.showErrors then
                 "Yes"
+
             else
                 "No"
     in
-    el [paddingXY 10 10] (text <| "Show Errors: " ++ txt)
+    el [ paddingXY 10 10 ] (text <| "Show Errors: " ++ txt)
 
+
+winModeView : GameState -> Element msg
 winModeView model =
     let
-      txt = if model.showWins then
+        txt =
+            if model.showWins then
                 "Yes"
+
             else
                 "No"
     in
-    el [paddingXY 10 10] (text <| "Show Wins: " ++ txt)
+    el [ paddingXY 10 10 ] (text <| "Show Wins: " ++ txt)
 
 
+snapshotCountView : GameState -> Element msg
 snapshotCountView model =
-    el [paddingXY 10 10 ] (text ("Snapshots: " ++ String.fromInt (List.length model.snapshots)))
-    
+    el [ paddingXY 10 10 ] (text ("Snapshots: " ++ String.fromInt (List.length model.snapshots)))
+
+
+
 ---- SUBSCRIPTIONS ----
 
 

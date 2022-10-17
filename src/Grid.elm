@@ -4,8 +4,8 @@ import Dict
 import Element exposing (..)
 import Element.Border as Border
 import Element.Events exposing (onClick, onMouseLeave)
-import Html.Attributes as HA exposing (id)
-import Html.Events exposing (custom, onMouseOver)
+import Html.Attributes as HA
+import Html.Events exposing (onMouseOver)
 import Json.Decode as Decode
 import Location exposing (..)
 import Msg exposing (..)
@@ -377,8 +377,8 @@ getCheckerboardErrors : SparseCells -> Set.Set Location
 getCheckerboardErrors cells =
     let
         isPartOfCheckerboard : Location -> Cell -> Bool
-        isPartOfCheckerboard loc cell =
-            getCheckerboardCells cells loc cell
+        isPartOfCheckerboard loc _ =
+            getCheckerboardCells cells loc
                 |> Set.isEmpty
                 |> not
     in
@@ -388,8 +388,8 @@ getCheckerboardErrors cells =
         |> Set.fromList
 
 
-getCheckerboardCells : SparseCells -> Location -> Cell -> Set.Set Location
-getCheckerboardCells cells loc cell =
+getCheckerboardCells : SparseCells -> Location -> Set.Set Location
+getCheckerboardCells cells loc =
     let
         allSameColor : List Location -> Bool
         allSameColor ls =
@@ -768,7 +768,7 @@ dot loc cellSize mHighlightedCell connectedCells errorCells isWin showErrors sho
         [ width (px cellSize)
         , pointer
         , onClick (CellLeftClicked loc)
-        , htmlAttribute <| onRightClick loc
+        , onRightClick loc
         ]
     <|
         Element.html <|
@@ -783,6 +783,7 @@ dot loc cellSize mHighlightedCell connectedCells errorCells isWin showErrors sho
                 )
 
 
+onRightClick : Location -> Attribute Msg
 onRightClick loc =
     Html.Events.custom "contextmenu"
         (Decode.succeed
@@ -791,3 +792,4 @@ onRightClick loc =
             , preventDefault = True
             }
         )
+        |> htmlAttribute
