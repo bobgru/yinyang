@@ -1,8 +1,10 @@
 module Grid exposing (..)
 
+-- import Element.Border as Border
+
 import Dict
 import Element exposing (..)
-import Element.Border as Border
+import Element.Background as Background
 import Element.Events exposing (onClick, onMouseLeave)
 import Html.Attributes as HA
 import Html.Events exposing (onMouseOver)
@@ -638,12 +640,11 @@ view viewportWidth viewportHeight model showErrors showWins =
     column
         [ Element.width fill
         , Element.height fill
-        , centerX
+        , alignRight
         , centerY
-        , Border.color (rgb 0 0 0)
-        , Border.width 1
         , onMouseLeave (CellHighlighted Nothing)
         , htmlAttribute (HA.id "game_grid")
+        , Background.color (rgb255 0xAA 0xEE 0xAA)
         ]
     <|
         List.indexedMap
@@ -689,6 +690,30 @@ rowView rowIndex gridWidth cellSize mHighlightedCell connectedCells errorCells i
 dot : Location -> Int -> Maybe Location -> Set.Set Location -> Set.Set Location -> Bool -> Bool -> Bool -> Cell -> Element Msg
 dot loc cellSize mHighlightedCell connectedCells errorCells isWin showErrors showWins cell =
     let
+        bgUnassigned =
+            "#CCCCCC"
+
+        bgLocked =
+            "#AAEEAA"
+
+        bgError =
+            "#AA6666"
+
+        bgConnected =
+            "#6666AA"
+
+        bgHighlighted =
+            "#AAAAAA"
+
+        bgWin =
+            "orange"
+
+        squareEdge =
+            "#AAAAAA"
+
+        circleEdge =
+            "#AAAAAA"
+
         cx =
             String.fromInt <| round (toFloat cellSize / 2)
 
@@ -720,37 +745,44 @@ dot loc cellSize mHighlightedCell connectedCells errorCells isWin showErrors sho
 
                 defaultFillColor =
                     if locked then
-                        "lightgreen"
+                        bgLocked
 
                     else
-                        "lightgray"
+                        bgUnassigned
 
                 fillColor =
                     if isWin && showWins then
-                        "orange"
+                        bgWin
 
                     else if isError && showErrors then
-                        "red"
+                        bgError
 
                     else if inConnectedSet then
-                        "blue"
+                        bgConnected
 
                     else if highlighted then
-                        "yellow"
+                        bgHighlighted
 
                     else
                         defaultFillColor
             in
             S.rect
-                [ SA.fill fillColor
-                , SA.stroke "black"
-                , SA.strokeWidth "3"
-                , SA.width side
-                , SA.height side
-                , SA.x "0"
-                , SA.y "0"
-                , onMouseOver (CellHighlighted (Just loc))
-                ]
+                ([ SA.fill fillColor
+                 , SA.width side
+                 , SA.height side
+                 , SA.x "0"
+                 , SA.y "0"
+                 , onMouseOver (CellHighlighted (Just loc))
+                 ]
+                    ++ (if highlighted || inConnectedSet || isError then
+                            []
+
+                        else
+                            [ SA.stroke squareEdge
+                            , SA.strokeWidth "3"
+                            ]
+                       )
+                )
                 []
 
         circle fillColor =
@@ -759,7 +791,7 @@ dot loc cellSize mHighlightedCell connectedCells errorCells isWin showErrors sho
                 , SA.cy cy
                 , SA.r radius
                 , SA.fill fillColor
-                , SA.stroke "darkgray"
+                , SA.stroke circleEdge
                 , SA.strokeWidth "3"
                 ]
                 []

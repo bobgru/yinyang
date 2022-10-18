@@ -4,6 +4,8 @@ import Browser
 import Browser.Dom as Dom
 import Browser.Events as E
 import Element exposing (..)
+import Element.Background as Background
+import Element.Font as Font
 import Grid as Grid
 import Html exposing (Html)
 import Html.Attributes as HA
@@ -422,35 +424,71 @@ view model =
                                    )
                             )
                         )
-                    , rightSidebar
                     ]
 
                 Running state ->
                     [ leftSidebar state
                     , Grid.view state.viewportWidth state.viewportHeight state.grid state.showErrors state.showWins
-                    , rightSidebar
                     ]
 
 
 leftSidebarPlaceholder : Element msg
 leftSidebarPlaceholder =
-    column [ width (px 200), paddingXY 10 10 ]
+    column [ width (px 500), padding 20 ]
         []
 
 
 leftSidebar : GameState -> Element msg
 leftSidebar state =
-    column [ width (px 200), height fill, paddingXY 10 10 ]
-        [ sampleGameSelectorView state
+    column
+        [ width (px 500)
+        , height fill
+        , padding 40
+        , Background.color (rgb255 0xAA 0xEE 0xAA)
+        ]
+        [ titleView
+        , instructionsView
+        , sampleGameSelectorView state
         , errorModeView state
         , winModeView state
         , snapshotCountView state
         ]
 
 
-rightSidebar : Element msg
-rightSidebar =
-    column [ height fill ] [ text "Right Sidebar" ]
+titleView : Element msg
+titleView =
+    el
+        [ paddingXY 10 30
+        , Font.bold
+        , Font.size 36
+        , Font.family [ Font.typeface "Zapfino" ]
+        ]
+        (text "Yin Yang")
+
+
+instructionsView : Element msg
+instructionsView =
+    textColumn
+        [ paddingXY 10 20
+        , Font.justify
+        , width fill
+        ]
+        [ paragraph
+            [ paddingXY 0 10 ]
+            [ text "The rules" ]
+        , paragraph
+            []
+            [ text "Fill every square" ]
+        , paragraph
+            []
+            [ text "No 2x2 squares of the same color" ]
+        , paragraph
+            []
+            [ text "All squares of the same color must be orthogonally connected." ]
+        , paragraph
+            []
+            [ text "TODO: describe clicks and keystroke commands" ]
+        ]
 
 
 sampleGameSelectorView : GameState -> Element msg
