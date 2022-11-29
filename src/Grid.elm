@@ -614,8 +614,8 @@ getConnectedComplements2 sparse acc =
 --- VIEW ----
 
 
-view : Float -> Float -> Model -> Bool -> Bool -> Element Msg
-view viewportWidth viewportHeight model showErrors showWins =
+view : Float -> Float -> Model -> Bool -> Bool -> Bool -> Element Msg
+view viewportWidth viewportHeight model showErrors showWins showPolylines =
     let
         width =
             model.grid.width
@@ -653,13 +653,14 @@ view viewportWidth viewportHeight model showErrors showWins =
                     model.isWin
                     showErrors
                     showWins
+                    showPolylines
                     rw
             )
             dense.cells
 
 
-rowView : Int -> Int -> Int -> Maybe Location -> Set.Set Location -> Set.Set Location -> Bool -> Bool -> Bool -> List Cell -> Element Msg
-rowView rowIndex gridWidth cellSize mHighlightedCell connectedCells errorCells isWin showErrors showWins rowCells =
+rowView : Int -> Int -> Int -> Maybe Location -> Set.Set Location -> Set.Set Location -> Bool -> Bool -> Bool -> Bool -> List Cell -> Element Msg
+rowView rowIndex gridWidth cellSize mHighlightedCell connectedCells errorCells isWin showErrors showWins showPolylines rowCells =
     row
         [ centerX
         , centerY
@@ -677,13 +678,14 @@ rowView rowIndex gridWidth cellSize mHighlightedCell connectedCells errorCells i
                     isWin
                     showErrors
                     showWins
+                    showPolylines
                     cell
             )
             rowCells
 
 
-dot : Location -> Int -> Maybe Location -> Set.Set Location -> Set.Set Location -> Bool -> Bool -> Bool -> Cell -> Element Msg
-dot loc cellSize mHighlightedCell connectedCells errorCells isWin showErrors showWins cell =
+dot : Location -> Int -> Maybe Location -> Set.Set Location -> Set.Set Location -> Bool -> Bool -> Bool -> Bool -> Cell -> Element Msg
+dot loc cellSize mHighlightedCell connectedCells errorCells isWin showErrors showWins showPolylines cell =
     let
         bgUnassigned =
             "#CCCCCC"
@@ -801,7 +803,7 @@ dot loc cellSize mHighlightedCell connectedCells errorCells isWin showErrors sho
         Element.html <|
             S.svg [ SA.height side ]
                 (square cell.locked
-                    :: (if cell.color == "unassigned" then
+                    :: (if cell.color == "unassigned" || showPolylines then
                             []
 
                         else

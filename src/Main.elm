@@ -58,6 +58,7 @@ type alias GameState =
     , cellHoveredOver : Maybe Location
     , showErrors : Bool
     , showWins : Bool
+    , showPolylines : Bool
     }
 
 
@@ -83,6 +84,7 @@ initialGameState config =
     , cellHoveredOver = Nothing
     , showErrors = True
     , showWins = True
+    , showPolylines = False
     }
 
 
@@ -188,6 +190,9 @@ handleKeyPress c model =
                         'p' ->
                             handlePopSnapshot state
 
+                        'd' ->
+                            handleDotPolylineToggle state
+
                         _ ->
                             state
             in
@@ -250,6 +255,11 @@ handlePopSnapshot state =
 
         _ ->
             state
+
+
+handleDotPolylineToggle : GameState -> GameState
+handleDotPolylineToggle state =
+    { state | showPolylines = not state.showPolylines }
 
 
 toggleShowErrors : GameState -> GameState
@@ -434,7 +444,13 @@ view model =
 
                 Running state ->
                     [ leftSidebar state
-                    , Grid.view state.viewportWidth state.viewportHeight state.grid state.showErrors state.showWins
+                    , Grid.view
+                        state.viewportWidth
+                        state.viewportHeight
+                        state.grid
+                        state.showErrors
+                        state.showWins
+                        state.showPolylines
                     ]
 
 
@@ -457,6 +473,7 @@ leftSidebar state =
         , sampleGameSelectorView state
         , errorModeView state
         , winModeView state
+        , showPolylinesView state
         , snapshotCountView state
         ]
 
@@ -526,6 +543,19 @@ winModeView model =
                 "No"
     in
     el [ paddingXY 10 10 ] (text <| "Show Wins: " ++ txt)
+
+
+showPolylinesView : GameState -> Element msg
+showPolylinesView model =
+    let
+        txt =
+            if model.showPolylines then
+                "Yes"
+
+            else
+                "No"
+    in
+    el [ paddingXY 10 10 ] (text <| "Show Polylines: " ++ txt)
 
 
 snapshotCountView : GameState -> Element msg
