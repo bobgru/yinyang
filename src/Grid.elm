@@ -494,23 +494,18 @@ getConnectedCells match cells loc =
             Dict.get loc cells
     in
     if match mCell then
-        getConnCells2 match cells loc
+        let
+            sameColorCells =
+                Dict.filter (\_ c2 -> match (Just c2)) cells
+        in
+        getConnCells2 sameColorCells (Set.singleton loc) Set.empty
 
     else
         Set.empty
 
 
-getConnCells2 : (Maybe Cell -> Bool) -> SparseCells -> Location -> Set.Set Location
-getConnCells2 match cells loc =
-    let
-        sameColorCells =
-            Dict.filter (\_ c2 -> match (Just c2)) cells
-    in
-    getConnCells3 sameColorCells (Set.singleton loc) Set.empty
-
-
-getConnCells3 : SparseCells -> Set.Set Location -> Set.Set Location -> Set.Set Location
-getConnCells3 cells seeds connCells =
+getConnCells2 : SparseCells -> Set.Set Location -> Set.Set Location -> Set.Set Location
+getConnCells2 cells seeds connCells =
     let
         neighbors ( r, c ) =
             [ ( r - 1, c ), ( r + 1, c ), ( r, c - 1 ), ( r, c + 1 ) ]
@@ -534,7 +529,7 @@ getConnCells3 cells seeds connCells =
             newConnCells =
                 Set.union connCells newSeeds
         in
-        getConnCells3 cells newSeeds newConnCells
+        getConnCells2 cells newSeeds newConnCells
 
 
 complementFromSparse : SparseGrid -> CellColor -> SparseGrid
@@ -616,7 +611,7 @@ getConnectedComplements2 sparse acc =
 
 
 
----- VIEW ----
+--- VIEW ----
 
 
 view : Float -> Float -> Model -> Bool -> Bool -> Element Msg

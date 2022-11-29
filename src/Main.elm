@@ -412,7 +412,13 @@ view model =
             case model of
                 Loading config ->
                     [ leftSidebarPlaceholder
-                    , el [ Element.htmlAttribute (HA.id "game_grid"), width fill, height fill ]
+                    , el
+                        [ Element.htmlAttribute (HA.id "game_grid")
+                        , width fill
+                        , height fill
+                        , centerX
+                        , centerY
+                        ]
                         (text
                             ("Loading"
                                 ++ (case config.error of
