@@ -631,32 +631,82 @@ view viewportWidth viewportHeight model showErrors showWins showPolylines =
 
         dense =
             denseFromSparse model.grid
+
+        gridWithDots =
+            List.indexedMap
+                (\r rw ->
+                    rowView r
+                        width
+                        cellSize
+                        model.highlightedCell
+                        model.connectedCells
+                        model.errorCells
+                        model.isWin
+                        showErrors
+                        showWins
+                        showPolylines
+                        rw
+                )
+                dense.cells
+
+        connectedCellsPolyline =
+            [ polylineView cellSize model.grid.height model.connectedCells ]
     in
-    column
-        [ Element.width fill
-        , Element.height fill
-        , alignRight
-        , centerY
-        , onMouseLeave (CellHighlighted Nothing)
-        , htmlAttribute (HA.id "game_grid")
-        , Background.color (rgb255 0xAA 0xEE 0xAA)
-        ]
-    <|
-        List.indexedMap
-            (\r rw ->
-                rowView r
-                    width
-                    cellSize
-                    model.highlightedCell
-                    model.connectedCells
-                    model.errorCells
-                    model.isWin
-                    showErrors
-                    showWins
-                    showPolylines
-                    rw
-            )
-            dense.cells
+    gridWithDots
+        ++ connectedCellsPolyline
+        |> column
+            [ Element.width fill
+            , Element.height fill
+            , alignRight
+            , centerY
+            , onMouseLeave (CellHighlighted Nothing)
+            , htmlAttribute (HA.id "game_grid")
+            , Background.color (rgb255 0xAA 0xEE 0xAA)
+            ]
+
+
+polylineView : Int -> Int -> Set.Set Location -> Element Msg
+polylineView cellSize height connectedCells =
+    el [ centerX, centerY ]
+        (Element.html <|
+            let
+                pts =
+                    [ ( 0, 0 ), ( 0, 1 ), ( 1, 1 ) ] |> List.map (\( x, y ) -> ( y, x ))
+
+                cvtCoord x =
+                    round ((toFloat x * toFloat cellSize) + (toFloat cellSize / 2))
+
+                cvtPoint ( x, y ) =
+                    ( cvtCoord x, cvtCoord y )
+
+                ptsStr =
+                    String.join " " <|
+                        List.map (\( x, y ) -> String.fromInt x ++ "," ++ String.fromInt y) <|
+                            List.map cvtPoint <|
+                                pts
+
+                myCircle ( x, y ) =
+                    S.circle
+                        [ SA.cx (Debug.log "myCircle cx" (String.fromInt <| cvtCoord x))
+                        , SA.cy (Debug.log "myCircle cy" (String.fromInt <| cvtCoord y))
+                        , SA.r (String.fromInt (round (toFloat cellSize / 20)))
+                        , SA.fill "#808080"
+                        , SA.stroke "none"
+                        ]
+                        []
+
+                strokeWidth =
+                    String.fromInt <| round <| toFloat cellSize * 0.8
+
+                svgHeight =
+                    String.fromInt (cellSize * height)
+            in
+            S.svg [ SA.height svgHeight, SA.width svgHeight ]
+                -- [ S.polyline [ SA.fill "yellow", SA.stroke "black", SA.points (Debug.log "ptsStr" ptsStr) ] [] ]
+                ([ S.polyline [ SA.fill "none", SA.strokeLinejoin "round", SA.strokeLinecap "round", SA.strokeWidth strokeWidth, SA.stroke "yellow", SA.points (Debug.log "ptsStr" ptsStr) ] [] ]
+                    ++ List.map myCircle pts
+                )
+        )
 
 
 rowView : Int -> Int -> Int -> Maybe Location -> Set.Set Location -> Set.Set Location -> Bool -> Bool -> Bool -> Bool -> List Cell -> Element Msg
@@ -686,6 +736,134 @@ rowView rowIndex gridWidth cellSize mHighlightedCell connectedCells errorCells i
 
 dot : Location -> Int -> Maybe Location -> Set.Set Location -> Set.Set Location -> Bool -> Bool -> Bool -> Bool -> Cell -> Element Msg
 dot loc cellSize mHighlightedCell connectedCells errorCells isWin showErrors showWins showPolylines cell =
+    let
+        bgUnassigned =
+            "#CCCCCC"
+
+        bgLocked =
+            "#AAEEAA"
+
+        bgError =
+            "#AA6666"
+
+        bgConnected =
+            "#6666AA"
+
+        bgHighlighted =
+            "#AAAAAA"
+
+        bgWin =
+            "orange"
+
+        squareEdge =
+            "#AAAAAA"
+
+        circleEdge =
+            "#AAAAAA"
+
+        cx =
+            String.fromInt <| round (toFloat cellSize / 2)
+
+        cy =
+            String.fromInt <| round (toFloat cellSize / 2)
+
+        radius =
+            String.fromInt <|
+                round (0.8 * toFloat cellSize / 2)
+
+        side =
+            String.fromInt cellSize
+
+        square locked =
+            let
+                isError =
+                    Set.member loc errorCells
+
+                inConnectedSet =
+                    Set.member loc connectedCells
+
+                highlighted =
+                    case mHighlightedCell of
+                        Nothing ->
+                            False
+
+                        Just loc2 ->
+                            loc == loc2
+
+                defaultFillColor =
+                    if locked then
+                        bgLocked
+
+                    else
+                        bgUnassigned
+
+                fillColor =
+                    if isWin && showWins then
+                        bgWin
+
+                    else if isError && showErrors then
+                        bgError
+
+                    else if inConnectedSet then
+                        bgConnected
+
+                    else if highlighted then
+                        bgHighlighted
+
+                    else
+                        defaultFillColor
+            in
+            S.rect
+                ([ SA.fill fillColor
+                 , SA.width side
+                 , SA.height side
+                 , SA.x "0"
+                 , SA.y "0"
+                 , onMouseOver (CellHighlighted (Just loc))
+                 ]
+                    ++ (if highlighted || inConnectedSet || isError then
+                            []
+
+                        else
+                            [ SA.stroke squareEdge
+                            , SA.strokeWidth "3"
+                            ]
+                       )
+                )
+                []
+
+        circle fillColor =
+            S.circle
+                [ SA.cx cx
+                , SA.cy cy
+                , SA.r radius
+                , SA.fill fillColor
+                , SA.stroke circleEdge
+                , SA.strokeWidth "3"
+                ]
+                []
+    in
+    el
+        [ width (px cellSize)
+        , pointer
+        , onClick (CellLeftClicked loc)
+        , onRightClick loc
+        ]
+    <|
+        Element.html <|
+            S.svg [ SA.height side ]
+                (square cell.locked
+                    :: (if cell.color == "unassigned" || showPolylines then
+                            []
+
+                        else
+                            [ circle cell.color ]
+                       )
+                )
+
+
+svgDot : Location -> Int -> Maybe Location -> Set.Set Location -> Set.Set Location -> Bool -> Bool -> Bool -> Bool -> Cell -> Element Msg
+svgDot loc cellSize mHighlightedCell connectedCells errorCells isWin showErrors showWins showPolylines cell =
     let
         bgUnassigned =
             "#CCCCCC"
