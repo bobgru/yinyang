@@ -723,7 +723,7 @@ polylineView cellSize height connectedCells =
                 []
 
         strokeWidth =
-            String.fromInt <| round <| toFloat cellSize * 0.8
+            String.fromInt <| round <| toFloat cellSize * 0.5
 
         svgHeight =
             String.fromInt (cellSize * height)
