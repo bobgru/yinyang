@@ -718,26 +718,47 @@ polylineView cellSize height clr connectedCells =
         cvtPoint ( x, y ) =
             ( cvtCoord y, cvtCoord x )
 
-        loc =
-            Maybe.withDefault ( 0, 0 ) <| List.head <| Set.toList connectedCells
+        mloc =
+            List.head <| Set.toList connectedCells
 
-        tree =
-            Tree.fromLocationSet loc connectedCells
+        mtree =
+            case mloc of
+                Nothing ->
+                    Nothing
+
+                Just loc ->
+                    Just <| Tree.fromLocationSet loc connectedCells
 
         pts =
-            Tree.toPath tree |> List.map cvtPoint
+            case mtree of
+                Nothing ->
+                    []
+
+                Just tree ->
+                    Tree.toPath tree |> List.map cvtPoint
 
         ptsStr =
-            Tree.toPolylinePointsWithConversion cvtPoint tree
+            case mtree of
+                Nothing ->
+                    ""
+
+                Just tree ->
+                    Tree.toPolylinePointsWithConversion cvtPoint tree
 
         myCircle ( x, y ) =
+            let
+                loc =
+                    ( x, y )
+            in
             S.circle
                 [ SA.cx (String.fromInt x)
                 , SA.cy (String.fromInt y)
-                , SA.r (String.fromInt (round (toFloat cellSize / 4)))
-                , SA.fill "#808080"
-                , SA.stroke "#AAAAAA"
-                , SA.strokeWidth "3"
+                , SA.r (String.fromInt (round (toFloat cellSize / 2.6)))
+                , SA.fill clr
+                , SA.stroke "none"
+                , HE.onClick (CellLeftClicked loc)
+                , onSvgRightClick loc
+                , SA.cursor "pointer"
                 ]
                 []
 
