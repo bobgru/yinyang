@@ -631,7 +631,25 @@ view viewportWidth viewportHeight model showErrors showWins showPolylines =
                 |> (\x -> x * 0.9)
                 |> round
 
-        connectedCellsPolyline =
+        polylineColor =
+            let
+                mloc =
+                    List.head <| Set.toList model.connectedCells
+
+                mcell =
+                    case mloc of
+                        Nothing ->
+                            Nothing
+
+                        Just loc ->
+                            Dict.get loc model.grid.cells
+
+                mclr =
+                    Maybe.map (\c -> c.color) mcell
+            in
+            Maybe.withDefault "yellow" mclr
+
+        gridView =
             let
                 xRange =
                     List.range 0 (height - 1)
@@ -673,13 +691,13 @@ view viewportWidth viewportHeight model showErrors showWins showPolylines =
                     <|
                         List.map callSvgDot cs
                             ++ (if showPolylines then
-                                    [ polylineView cellSize height model.connectedCells ]
+                                    [ polylineView cellSize height polylineColor model.connectedCells ]
 
                                 else
                                     []
                                )
     in
-    [ connectedCellsPolyline ]
+    [ gridView ]
         |> column
             [ Element.width fill
             , Element.height fill
@@ -691,8 +709,8 @@ view viewportWidth viewportHeight model showErrors showWins showPolylines =
             ]
 
 
-polylineView : Int -> Int -> Set.Set Location -> S.Svg Msg
-polylineView cellSize height connectedCells =
+polylineView : Int -> Int -> CellColor -> Set.Set Location -> S.Svg Msg
+polylineView cellSize height clr connectedCells =
     let
         cvtCoord x =
             round ((toFloat x * toFloat cellSize) + (toFloat cellSize / 2))
@@ -716,14 +734,21 @@ polylineView cellSize height connectedCells =
             S.circle
                 [ SA.cx (String.fromInt x)
                 , SA.cy (String.fromInt y)
-                , SA.r (String.fromInt (round (toFloat cellSize / 20)))
+                , SA.r (String.fromInt (round (toFloat cellSize / 4)))
                 , SA.fill "#808080"
-                , SA.stroke "none"
+                , SA.stroke "#AAAAAA"
+                , SA.strokeWidth "3"
                 ]
                 []
 
         strokeWidth =
-            String.fromInt <| round <| toFloat cellSize * 0.5
+            round <| toFloat cellSize * 0.85
+
+        outerStrokeWidth =
+            String.fromInt <| strokeWidth
+
+        innerStrokeWidth =
+            String.fromInt <| strokeWidth - 6
 
         svgHeight =
             String.fromInt (cellSize * height)
@@ -733,11 +758,20 @@ polylineView cellSize height connectedCells =
             [ SA.fill "none"
             , SA.strokeLinejoin "round"
             , SA.strokeLinecap "round"
-            , SA.strokeWidth strokeWidth
-            , SA.stroke "yellow"
+            , SA.strokeWidth outerStrokeWidth
+            , SA.stroke "#AAAAAA"
             , SA.points ptsStr
             ]
             []
+            :: S.polyline
+                [ SA.fill "none"
+                , SA.strokeLinejoin "round"
+                , SA.strokeLinecap "round"
+                , SA.strokeWidth innerStrokeWidth
+                , SA.stroke clr
+                , SA.points ptsStr
+                ]
+                []
             :: List.map myCircle pts
 
 
