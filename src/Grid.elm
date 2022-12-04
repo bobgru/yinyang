@@ -16,10 +16,11 @@ import Svg as S
 import Svg.Attributes as SA
 import Svg.Events as SE
 import Task exposing (..)
+import Tree as Tree
 
 
 
----- MODEL ----
+-- MODEL ----
 
 
 type alias Model =
@@ -693,25 +694,28 @@ view viewportWidth viewportHeight model showErrors showWins showPolylines =
 polylineView : Int -> Int -> Set.Set Location -> S.Svg Msg
 polylineView cellSize height connectedCells =
     let
-        pts =
-            [ ( 0, 0 ), ( 0, 1 ), ( 1, 1 ) ] |> List.map (\( x, y ) -> ( y, x ))
-
         cvtCoord x =
             round ((toFloat x * toFloat cellSize) + (toFloat cellSize / 2))
 
         cvtPoint ( x, y ) =
-            ( cvtCoord x, cvtCoord y )
+            ( cvtCoord y, cvtCoord x )
+
+        loc =
+            Maybe.withDefault ( 0, 0 ) <| List.head <| Set.toList connectedCells
+
+        tree =
+            Tree.fromLocationSet loc connectedCells
+
+        pts =
+            Tree.toPath tree |> List.map cvtPoint
 
         ptsStr =
-            String.join " " <|
-                List.map (\( x, y ) -> String.fromInt x ++ "," ++ String.fromInt y) <|
-                    List.map cvtPoint <|
-                        pts
+            Tree.toPolylinePointsWithConversion cvtPoint tree
 
         myCircle ( x, y ) =
             S.circle
-                [ SA.cx (String.fromInt <| cvtCoord x)
-                , SA.cy (String.fromInt <| cvtCoord y)
+                [ SA.cx (String.fromInt x)
+                , SA.cy (String.fromInt y)
                 , SA.r (String.fromInt (round (toFloat cellSize / 20)))
                 , SA.fill "#808080"
                 , SA.stroke "none"
@@ -770,7 +774,6 @@ svgDot loc cellSize model showErrors showWins cell =
         cvtCenterCoord dim xx =
             round ((toFloat xx * toFloat dim) + (toFloat dim / 2))
 
-        -- Transposing x and y
         ( x, y ) =
             loc
 
@@ -835,10 +838,10 @@ svgDot loc cellSize model showErrors showWins cell =
             in
             S.rect
                 ([ SA.fill fillColor
-                 , SA.width (Debug.log "svgDot: side" side)
+                 , SA.width side
                  , SA.height side
-                 , SA.x (Debug.log "svgDot: xStr" xStr)
-                 , SA.y (Debug.log "svgDot: yStr" yStr)
+                 , SA.x xStr
+                 , SA.y yStr
                  , HE.onMouseOver (CellHighlighted (Just loc))
                  , HE.onClick (CellLeftClicked loc)
                  , onSvgRightClick loc

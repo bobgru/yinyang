@@ -65,3 +65,15 @@ toPolylinePoints t =
             String.join "," [ String.fromInt x, String.fromInt y ]
     in
     String.join " " <| List.map locToString p
+
+
+toPolylinePointsWithConversion : (Location -> Location) -> Tree Location -> String
+toPolylinePointsWithConversion f t =
+    let
+        p =
+            toPath t |> List.map f
+
+        locToString ( x, y ) =
+            String.join "," [ String.fromInt x, String.fromInt y ]
+    in
+    String.join " " <| List.map locToString p
