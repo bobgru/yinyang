@@ -6,7 +6,7 @@ import Dict
 import Element exposing (..)
 import Element.Background as Background
 import Element.Events as EE exposing (onMouseLeave)
-import Html exposing (s, th)
+import Html exposing (s)
 import Html.Attributes as HA
 import Html.Events as HE exposing (onClick, onMouseOver)
 import Json.Decode as Decode
@@ -788,12 +788,7 @@ polylineView cellSize height cells connectedCells =
                     List.head <| Set.toList connectedCells
 
                 mcell =
-                    case mloc2 of
-                        Nothing ->
-                            Nothing
-
-                        Just loc ->
-                            Dict.get loc cells
+                    Maybe.andThen (\x -> Dict.get x cells) mloc2
             in
             Maybe.withDefault unassigned <| Maybe.map (\c -> c.color) mcell
 
