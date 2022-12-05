@@ -6,6 +6,7 @@ import Dict
 import Element exposing (..)
 import Element.Background as Background
 import Element.Events as EE exposing (onMouseLeave)
+import Html exposing (s, th)
 import Html.Attributes as HA
 import Html.Events as HE exposing (onClick, onMouseOver)
 import Json.Decode as Decode
@@ -25,6 +26,7 @@ import Tree as Tree
 
 type alias Model =
     { grid : SparseGrid
+    , connectedSets : List (Set.Set Location)
     , highlightedCell : Maybe Location
     , connectedCells : Set.Set Location
     , errorCells : Set.Set Location
@@ -103,8 +105,12 @@ initialModel cells =
             }
                 |> denseFromSparse
                 |> sparseFromDense
+
+        newConnectedSets =
+            []
     in
     { grid = grid
+    , connectedSets = newConnectedSets
     , highlightedCell = Nothing
     , connectedCells = Set.empty
     , errorCells = Set.empty
@@ -186,7 +192,89 @@ updateCellColor loc clr sparse =
         newModel =
             { sparse | grid = newGrid }
     in
-    { newModel | isWin = checkWin newModel }
+    { newModel
+        | connectedSets =
+            let
+                cs =
+                    getConnectedSets newGrid.cells
+
+                _ =
+                    Debug.log "Number of connected sets" <| List.length cs
+
+                _ =
+                    Debug.log "Connected sets" cs
+            in
+            cs
+        , isWin = checkWin newModel
+    }
+
+
+getConnectedSets : SparseCells -> List (Set.Set Location)
+getConnectedSets cells =
+    getNextConnectedSetHelper [] cells
+
+
+getNextConnectedSetHelper : List (Set.Set Location) -> SparseCells -> List (Set.Set Location)
+getNextConnectedSetHelper connectedSets cells =
+    if Dict.isEmpty cells then
+        connectedSets
+
+    else
+        let
+            s =
+                getNextConnectedSet cells
+        in
+        case Set.toList s of
+            [] ->
+                connectedSets
+
+            loc :: [] ->
+                getNextConnectedSetHelper connectedSets (Dict.remove loc cells)
+
+            locs ->
+                let
+                    newCells =
+                        List.foldl
+                            (\k d -> Dict.remove k d)
+                            cells
+                            locs
+                in
+                getNextConnectedSetHelper (s :: connectedSets) newCells
+
+
+
+-- Returns empty set to indicate done, singleton to indicate no
+-- connected cells, otherwise connected cells.
+
+
+getNextConnectedSet : SparseCells -> Set.Set Location
+getNextConnectedSet cells =
+    case List.head (Dict.keys cells) of
+        -- Impossible--we already checked for this in caller.
+        Nothing ->
+            Set.empty
+
+        Just loc ->
+            case Dict.get loc cells of
+                -- Impossible--we got loc from the cells.
+                Nothing ->
+                    Set.empty
+
+                Just cell ->
+                    case cell.color of
+                        "unassigned" ->
+                            Set.singleton loc
+
+                        _ ->
+                            let
+                                s =
+                                    getConnectedCells (matchColor cell.color) cells loc
+                            in
+                            if Set.isEmpty s then
+                                Set.singleton loc
+
+                            else
+                                Set.insert loc s
 
 
 highlightedCells : Model -> Maybe Location -> Model
@@ -631,24 +719,6 @@ view viewportWidth viewportHeight model showErrors showWins showPolylines =
                 |> (\x -> x * 0.9)
                 |> round
 
-        polylineColor =
-            let
-                mloc =
-                    List.head <| Set.toList model.connectedCells
-
-                mcell =
-                    case mloc of
-                        Nothing ->
-                            Nothing
-
-                        Just loc ->
-                            Dict.get loc model.grid.cells
-
-                mclr =
-                    Maybe.map (\c -> c.color) mcell
-            in
-            Maybe.withDefault "yellow" mclr
-
         gridView =
             let
                 xRange =
@@ -691,7 +761,7 @@ view viewportWidth viewportHeight model showErrors showWins showPolylines =
                     <|
                         List.map callSvgDot cs
                             ++ (if showPolylines then
-                                    [ polylineView cellSize height polylineColor model.connectedCells ]
+                                    List.map (polylineView cellSize height model.grid.cells) model.connectedSets
 
                                 else
                                     []
@@ -709,9 +779,24 @@ view viewportWidth viewportHeight model showErrors showWins showPolylines =
             ]
 
 
-polylineView : Int -> Int -> CellColor -> Set.Set Location -> S.Svg Msg
-polylineView cellSize height clr connectedCells =
+polylineView : Int -> Int -> SparseCells -> Set.Set Location -> S.Svg Msg
+polylineView cellSize height cells connectedCells =
     let
+        clr =
+            let
+                mloc2 =
+                    List.head <| Set.toList connectedCells
+
+                mcell =
+                    case mloc2 of
+                        Nothing ->
+                            Nothing
+
+                        Just loc ->
+                            Dict.get loc cells
+            in
+            Maybe.withDefault unassigned <| Maybe.map (\c -> c.color) mcell
+
         cvtCoord x =
             round ((toFloat x * toFloat cellSize) + (toFloat cellSize / 2))
 
@@ -722,12 +807,11 @@ polylineView cellSize height clr connectedCells =
             List.head <| Set.toList connectedCells
 
         mtree =
-            case mloc of
-                Nothing ->
-                    Nothing
-
-                Just loc ->
-                    Just <| Tree.fromLocationSet loc connectedCells
+            Maybe.map
+                (\loc ->
+                    Tree.fromLocationSet loc connectedCells
+                )
+                mloc
 
         pts =
             case mtree of
