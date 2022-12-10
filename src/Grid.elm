@@ -1,13 +1,7 @@
 module Grid exposing (..)
 
--- import Element.Border as Border
-
 import Dict
-import Element exposing (..)
-import Element.Background as Background
-import Element.Events as EE exposing (onMouseLeave)
-import Html exposing (s)
-import Html.Attributes as HA
+import Html exposing (Html)
 import Html.Events as HE exposing (onClick, onMouseOver)
 import Json.Decode as Decode
 import Location exposing (..)
@@ -704,20 +698,21 @@ getConnectedComplements2 sparse acc =
 --- VIEW ----
 
 
-view : Float -> Float -> Model -> Bool -> Bool -> Bool -> Element Msg
-view viewportWidth viewportHeight model showErrors showWins showPolylines =
+getCellSize : Float -> Float -> Int -> Int -> Int
+getCellSize viewportWidth viewportHeight width height =
+    min (viewportWidth / toFloat width) (viewportHeight / toFloat height)
+        |> (\x -> x * 0.9)
+        |> round
+
+
+view : Model -> Int -> Bool -> Bool -> Bool -> Html Msg
+view model cellSize showErrors showWins showPolylines =
     let
         width =
             model.grid.width
 
         height =
             model.grid.height
-
-        cellSize : Int
-        cellSize =
-            min (viewportWidth / toFloat width) (viewportHeight / toFloat height)
-                |> (\x -> x * 0.9)
-                |> round
 
         gridView =
             let
@@ -746,37 +741,20 @@ view viewportWidth viewportHeight model showErrors showWins showPolylines =
                 callSvgDot =
                     \( ( x, y ), c ) -> svgDot ( x, y ) cellSize model showErrors showWins c
             in
-            el
-                [ Element.width (px (cellSize * width))
-                , Element.height (px (cellSize * height))
-                , centerX
-                , centerY
+            S.svg
+                [ SA.width (String.fromInt <| cellSize * width)
+                , SA.height (String.fromInt <| cellSize * height)
                 ]
             <|
-                Element.html <|
-                    S.svg
-                        [ SA.width (String.fromInt <| cellSize * width)
-                        , SA.height (String.fromInt <| cellSize * height)
-                        ]
-                    <|
-                        List.map callSvgDot cs
-                            ++ (if showPolylines then
-                                    List.map (polylineView cellSize height model.grid.cells) model.connectedSets
+                List.map callSvgDot cs
+                    ++ (if showPolylines then
+                            List.map (polylineView cellSize height model.grid.cells) model.connectedSets
 
-                                else
-                                    []
-                               )
+                        else
+                            []
+                       )
     in
-    [ gridView ]
-        |> column
-            [ Element.width fill
-            , Element.height fill
-            , alignRight
-            , centerY
-            , EE.onMouseLeave (CellHighlighted Nothing)
-            , htmlAttribute (HA.id "game_grid")
-            , Background.color (rgb255 0xAA 0xEE 0xAA)
-            ]
+    gridView
 
 
 polylineView : Int -> Int -> SparseCells -> Set.Set Location -> S.Svg Msg
@@ -1007,18 +985,6 @@ svgDot loc cellSize model showErrors showWins cell =
                     [ circle cell.color ]
                )
         )
-
-
-onRightClick : Location -> Attribute Msg
-onRightClick loc =
-    HE.custom "contextmenu"
-        (Decode.succeed
-            { message = CellRightClicked loc
-            , stopPropagation = True
-            , preventDefault = True
-            }
-        )
-        |> htmlAttribute
 
 
 onSvgRightClick : Location -> S.Attribute Msg

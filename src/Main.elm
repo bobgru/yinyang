@@ -5,6 +5,7 @@ import Browser.Dom as Dom
 import Browser.Events as E
 import Element exposing (..)
 import Element.Background as Background
+import Element.Events as EE exposing (onMouseLeave)
 import Element.Font as Font
 import Grid as Grid
 import Html exposing (Html)
@@ -443,15 +444,45 @@ view model =
                     ]
 
                 Running state ->
+                    let
+                        cellSize =
+                            Grid.getCellSize
+                                state.viewportWidth
+                                state.viewportHeight
+                                state.grid.grid.width
+                                state.grid.grid.height
+                    in
                     [ leftSidebar state
-                    , Grid.view
-                        state.viewportWidth
-                        state.viewportHeight
+                    , gridView
                         state.grid
+                        cellSize
                         state.showErrors
                         state.showWins
                         state.showPolylines
                     ]
+
+
+gridView : Grid.Model -> Int -> Bool -> Bool -> Bool -> Element Msg
+gridView model cellSize showErrors showWins showPolylines =
+    [ el
+        [ Element.width (px (cellSize * model.grid.width))
+        , Element.height (px (cellSize * model.grid.height))
+        , centerX
+        , centerY
+        ]
+      <|
+        Element.html <|
+            Grid.view model cellSize showErrors showWins showPolylines
+    ]
+        |> column
+            [ Element.width fill
+            , Element.height fill
+            , alignRight
+            , centerY
+            , EE.onMouseLeave (CellHighlighted Nothing)
+            , htmlAttribute (HA.id "game_grid")
+            , Background.color (rgb255 0xAA 0xEE 0xAA)
+            ]
 
 
 leftSidebarPlaceholder : Element msg
