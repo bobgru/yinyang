@@ -11,7 +11,8 @@ I wanted to practice solving such puzzles to get better at them, but couldn't fi
 or collection online, so decided to write one. Another motive
 was to become acquainted with `elm-ui`, and to practice Elm programming in general.
 
-As of now, there are sample games I found on `puzzling.stackexchange.com` to choose
+As of now, there are sample games I found on `puzzling.stackexchange.com` and `https://erikdemaine.org/fonts/yinyang/`
+(a "font" of puzzles, one for each letter--more on this below) to choose
 from, where the game is selected randomly when the page is refreshed. Click left to play black.
 Click right to play white. Click again to remove. The target cell for a click is highlighted
 yellow. Cells part of the original puzzle configuration have a light green background.
@@ -47,3 +48,5 @@ There is enough functionality to practice the samples, but there are features I 
 * Provide a hint, preferably according to logical deduction
 * Record elapsed time to solve
 * Abstract out a general black/white grid game module
+
+The font puzzle site mentioned above hints at how the games were constructed. It also shows multiple puzzles on the page as a word of text in the font. The puzzles vary in difficulty, such that I could solve some easily and some were hard enough that I coded them into this program so I could use snapshots and backtracking. So, this program is serving its purpose, rough as it is.

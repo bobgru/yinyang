@@ -953,9 +953,8 @@ svgDot loc cellSize model showErrors showWins cell =
 
                     else if isError && showErrors then
                         bgError
-
-                    else if inConnectedSet then
-                        bgConnected
+                        -- else if inConnectedSet then
+                        --     bgConnected
 
                     else if highlighted then
                         bgHighlighted
@@ -971,25 +970,18 @@ svgDot loc cellSize model showErrors showWins cell =
                     String.fromInt <| cvtCornerCoord cellSize x
             in
             S.rect
-                ([ SA.fill fillColor
-                 , SA.width side
-                 , SA.height side
-                 , SA.x xStr
-                 , SA.y yStr
-                 , HE.onMouseOver (CellHighlighted (Just loc))
-                 , HE.onClick (CellLeftClicked loc)
-                 , onSvgRightClick loc
-                 , SA.cursor "pointer"
-                 ]
-                    ++ (if highlighted || inConnectedSet || isError then
-                            []
-
-                        else
-                            [ SA.stroke squareEdge
-                            , SA.strokeWidth "3"
-                            ]
-                       )
-                )
+                [ SA.fill fillColor
+                , SA.width side
+                , SA.height side
+                , SA.x xStr
+                , SA.y yStr
+                , HE.onMouseOver (CellHighlighted (Just loc))
+                , HE.onClick (CellLeftClicked loc)
+                , onSvgRightClick loc
+                , SA.cursor "pointer"
+                , SA.stroke squareEdge
+                , SA.strokeWidth "3"
+                ]
                 []
 
         circle fillColor =

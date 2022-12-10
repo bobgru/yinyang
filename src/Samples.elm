@@ -16,6 +16,8 @@ samples =
       , game3
       , game4
       , game5
+      , game6
+      , game7
       ]
     )
 
@@ -202,5 +204,70 @@ game5 =
         , ( ( 6, 6 ), black )
         , ( ( 7, 4 ), black )
         , ( ( 7, 7 ), black )
+        ]
+    }
+
+
+game6 : Grid.SparseGridInput
+game6 =
+    { width = 9
+    , height = 11
+    , cells =
+        [ ( ( 1, 4 ), white )
+        , ( ( 2, 2 ), white )
+        , ( ( 2, 4 ), white )
+        , ( ( 2, 6 ), white )
+        , ( ( 3, 3 ), white )
+        , ( ( 3, 5 ), white )
+        , ( ( 4, 3 ), black )
+        , ( ( 5, 1 ), white )
+        , ( ( 5, 3 ), white )
+        , ( ( 5, 4 ), black )
+        , ( ( 5, 6 ), white )
+        , ( ( 5, 7 ), white )
+        , ( ( 6, 3 ), black )
+        , ( ( 7, 3 ), white )
+        , ( ( 7, 5 ), white )
+        , ( ( 8, 2 ), white )
+        , ( ( 8, 4 ), white )
+        , ( ( 9, 2 ), black )
+        , ( ( 9, 4 ), white )
+        , ( ( 9, 6 ), black )
+        , ( ( 10, 0 ), white )
+        , ( ( 10, 1 ), black )
+        ]
+    }
+
+
+game7 : Grid.SparseGridInput
+game7 =
+    { width = 9
+    , height = 11
+    , cells =
+        [ ( ( 1, 4 ), black )
+        , ( ( 2, 2 ), white )
+        , ( ( 2, 3 ), black )
+        , ( ( 2, 5 ), black )
+        , ( ( 2, 6 ), white )
+        , ( ( 3, 2 ), white )
+        , ( ( 3, 3 ), black )
+        , ( ( 3, 5 ), black )
+        , ( ( 3, 6 ), white )
+        , ( ( 4, 1 ), white )
+        , ( ( 4, 3 ), black )
+        , ( ( 4, 5 ), black )
+        , ( ( 4, 7 ), white )
+        , ( ( 5, 1 ), black )
+        , ( ( 5, 6 ), black )
+        , ( ( 6, 1 ), white )
+        , ( ( 6, 3 ), black )
+        , ( ( 6, 5 ), black )
+        , ( ( 7, 2 ), black )
+        , ( ( 7, 6 ), black )
+        , ( ( 8, 3 ), black )
+        , ( ( 8, 5 ), black )
+        , ( ( 9, 2 ), black )
+        , ( ( 9, 6 ), black )
+        , ( ( 10, 3 ), black )
         ]
     }
