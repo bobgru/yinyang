@@ -187,18 +187,7 @@ updateCellColor loc clr sparse =
             { sparse | grid = newGrid }
     in
     { newModel
-        | connectedSets =
-            let
-                cs =
-                    getConnectedSets newGrid.cells
-
-                _ =
-                    Debug.log "Number of connected sets" <| List.length cs
-
-                _ =
-                    Debug.log "Connected sets" cs
-            in
-            cs
+        | connectedSets = getConnectedSets newGrid.cells
         , isWin = checkWin newModel
     }
 

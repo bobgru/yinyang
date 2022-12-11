@@ -405,11 +405,7 @@ updateCellColor loc clr undoOrRedo state =
 
 highlightCells : Maybe Location -> GameState -> GameState
 highlightCells mloc state =
-    let
-        newState =
-            { state | grid = Grid.highlightedCells state.grid mloc }
-    in
-    newState
+    { state | grid = Grid.highlightedCells state.grid mloc }
 
 
 
