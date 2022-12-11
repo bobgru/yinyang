@@ -703,47 +703,43 @@ view model cellSize showErrors showWins showPolylines =
         height =
             model.grid.height
 
-        gridView =
+        xRange =
+            List.range 0 (height - 1)
+
+        yRange =
+            List.range 0 (width - 1)
+
+        pairs xs ys =
+            List.concat <| List.map (\x -> List.map (\y -> ( x, y )) ys) xs
+
+        cs =
+            List.map f <| pairs xRange yRange
+
+        f ( x, y ) =
             let
-                xRange =
-                    List.range 0 (height - 1)
-
-                yRange =
-                    List.range 0 (width - 1)
-
-                pairs xs ys =
-                    List.concat <| List.map (\x -> List.map (\y -> ( x, y )) ys) xs
-
-                cs =
-                    List.map f <| pairs xRange yRange
-
-                f ( x, y ) =
-                    let
-                        c =
-                            Maybe.withDefault
-                                (Cell unassigned False)
-                            <|
-                                Dict.get ( x, y ) model.grid.cells
-                    in
-                    ( ( x, y ), c )
-
-                callSvgDot =
-                    \( ( x, y ), c ) -> svgDot ( x, y ) cellSize model showErrors showWins c
+                c =
+                    Maybe.withDefault
+                        (Cell unassigned False)
+                    <|
+                        Dict.get ( x, y ) model.grid.cells
             in
-            S.svg
-                [ SA.width (String.fromInt <| cellSize * width)
-                , SA.height (String.fromInt <| cellSize * height)
-                ]
-            <|
-                List.map callSvgDot cs
-                    ++ (if showPolylines then
-                            List.map (polylineView cellSize height model.grid.cells) model.connectedSets
+            ( ( x, y ), c )
 
-                        else
-                            []
-                       )
+        callSvgDot =
+            \( ( x, y ), c ) -> svgDot ( x, y ) cellSize model showErrors showWins c
     in
-    gridView
+    S.svg
+        [ SA.width (String.fromInt <| cellSize * width)
+        , SA.height (String.fromInt <| cellSize * height)
+        ]
+    <|
+        List.map callSvgDot cs
+            ++ (if showPolylines then
+                    List.map (polylineView cellSize height model.grid.cells) model.connectedSets
+
+                else
+                    []
+               )
 
 
 polylineView : Int -> Int -> SparseCells -> Set.Set Location -> S.Svg Msg
